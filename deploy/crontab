@@ -1,2 +1,0 @@
-# crontab -u www-data -e   — reminders 24h before start + cleanup of unverified data
-*/10 * * * * cd /srv/skraning && set -a && . /etc/default/skraning && set +a && .venv/bin/python tasks.py >> /srv/skraning/data/tasks.log 2>&1

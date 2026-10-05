@@ -1,7 +1,6 @@
 """Scheduled jobs: reminders 24h before an event starts, and cleanup of unverified data.
 
-Run every ~10 minutes from cron, e.g.:
-    */10 * * * * cd /path/to/skraning && .venv/bin/python tasks.py
+Run every 10 minutes in production by deploy/skraning-tasks.timer.
 """
 
 import logging

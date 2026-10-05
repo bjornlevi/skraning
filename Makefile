@@ -12,7 +12,7 @@ install:
 	python3 -m venv .venv
 	.venv/bin/pip install -r requirements.txt
 
-# Reminders + cleanup. Run from cron every ~10 minutes in production.
+# Reminders + cleanup. In production a systemd timer runs this every 10 minutes.
 tasks:
 	$(PYTHON) tasks.py
 

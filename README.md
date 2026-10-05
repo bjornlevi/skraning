@@ -71,7 +71,9 @@ and port to match how opin_gogn is set up on the server:
 2. `deploy/skraning.env.example` → `/etc/default/skraning` (chmod 600), fill in.
 3. `deploy/skraning.service` → systemd; `deploy/nginx.conf` → the existing
    server block.
-4. `deploy/crontab` → `crontab -u www-data -e` (reminders + cleanup every 10 min).
+4. `deploy/skraning-tasks.service` and `deploy/skraning-tasks.timer` → systemd, then
+   `sudo systemctl enable --now skraning-tasks.timer` (reminders + cleanup every 10 min,
+   same user and settings file as the app; output in `journalctl -u skraning-tasks`).
 
 Back up `data/` (the SQLite database and uploaded images).
 

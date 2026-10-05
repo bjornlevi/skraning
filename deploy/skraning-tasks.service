@@ -1,0 +1,12 @@
+# /etc/systemd/system/skraning-tasks.service
+# Reminders 24h before an event + cleanup of unverified data. Started by skraning-tasks.timer.
+# Use the same User as skraning.service so the database stays writable by the app.
+[Unit]
+Description=Skraning: reminders and cleanup
+
+[Service]
+Type=oneshot
+User=www-data
+WorkingDirectory=/srv/skraning
+EnvironmentFile=/etc/default/skraning
+ExecStart=/srv/skraning/.venv/bin/python tasks.py

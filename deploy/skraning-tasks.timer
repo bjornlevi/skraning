@@ -1,0 +1,11 @@
+# /etc/systemd/system/skraning-tasks.timer
+# Enable with: sudo systemctl daemon-reload && sudo systemctl enable --now skraning-tasks.timer
+[Unit]
+Description=Run skraning tasks every 10 minutes
+
+[Timer]
+OnCalendar=*:0/10
+Persistent=true
+
+[Install]
+WantedBy=timers.target

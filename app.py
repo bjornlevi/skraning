@@ -74,7 +74,7 @@ def load_config() -> dict:
         "SECRET_KEY": os.getenv("SECRET_KEY", "dev-only-not-secret"),
         "DATABASE": os.getenv("DATABASE", str(BASE_DIR / "data" / "skraning.db")),
         "UPLOAD_DIR": os.getenv("UPLOAD_DIR", str(BASE_DIR / "data" / "uploads")),
-        # Public address including PREFIX — used for links in emails (incl. from cron)
+        # Public address including PREFIX — used for links in emails (incl. from tasks.py)
         "BASE_URL": base_url,
         "TIMEZONE": os.getenv("TIMEZONE", "Atlantic/Reykjavik"),
         # Shared association password for creating events (required in production)
@@ -206,7 +206,7 @@ def client_ip() -> str:
 
 
 def external_url(endpoint: str, **values) -> str:
-    """Absolute URL for emails. Works outside requests (cron) via BASE_URL."""
+    """Absolute URL for emails. Works outside requests (tasks.py) via BASE_URL."""
     path = current_app.url_map.bind("localhost").build(endpoint, values)
     return current_app.config["BASE_URL"] + path
 
