@@ -6,7 +6,7 @@ Description=Skraning: reminders and cleanup
 
 [Service]
 Type=oneshot
-User=www-data
+User=web
 WorkingDirectory=/srv/skraning
 EnvironmentFile=/etc/default/skraning
 ExecStart=/srv/skraning/.venv/bin/python tasks.py

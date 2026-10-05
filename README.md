@@ -63,8 +63,8 @@ http://localhost:5003/skraning/
 ## Deployment (bjornlevi.is/skraning)
 
 Runs like opin_gogn: gunicorn on `127.0.0.1:8018` behind nginx, mounted at
-`/skraning`. The app runs as one system user (`www-data` below — use the same
-user as your other apps), and all settings live in `/etc/default/skraning`.
+`/skraning`. The app runs as the system user `web`, and all settings live in
+`/etc/default/skraning`.
 
 ### 1. Code and data folder
 
@@ -72,7 +72,7 @@ user as your other apps), and all settings live in `/etc/default/skraning`.
 sudo mkdir /srv/skraning && sudo chown $USER: /srv/skraning
 git clone git@github.com:bjornlevi/skraning.git /srv/skraning   # as yourself, with your GitHub key
 cd /srv/skraning && make install
-mkdir -p data && sudo chown -R www-data: data
+mkdir -p data && sudo chown -R web: data
 ```
 
 ### 2. Settings
@@ -124,8 +124,10 @@ systemctl list-timers skraning-tasks.timer               # when it runs next
 journalctl -u skraning-tasks -n 20 --no-pager            # its output and any errors
 ```
 
-If the app runs as another user than `www-data`, change `User=` in both
-`skraning.service` and `skraning-tasks.service` before copying them.
+Both service files run as `web`. The timer's service must use the same user as
+the app, or it cannot write to the database. If you change the user, change
+`User=` in both `skraning.service` and `skraning-tasks.service` before copying
+them.
 
 ### Updating
 
