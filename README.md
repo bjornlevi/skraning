@@ -60,33 +60,160 @@ http://localhost:5003/skraning/
 | `MAIL_FROM` / `MAIL_FROM_NAME` | `no-reply@bjornlevi.is` / `Skráning` | |
 | `SMTP_HOST` `SMTP_PORT` `SMTP_STARTTLS` `SMTP_USER` `SMTP_PASSWORD` | `localhost` `25` | `SMTP_STARTTLS=1` to enable |
 
-## Deployment (server.com/skraning)
+## Deployment (bjornlevi.is/skraning)
 
-Runs like opin_gogn: gunicorn on localhost behind nginx, mounted at
-`/skraning` via `PREFIX`. Example files are in `deploy/` — adjust the user, paths
-and port to match how opin_gogn is set up on the server:
+Runs like opin_gogn: gunicorn on `127.0.0.1:8018` behind nginx, mounted at
+`/skraning`. The app runs as one system user (`www-data` below — use the same
+user as your other apps), and all settings live in `/etc/default/skraning`.
 
-1. Copy the project to `/srv/skraning`, run `make install`, create `data/`
-   owned by `www-data`.
-2. `deploy/skraning.env.example` → `/etc/default/skraning` (chmod 600), fill in.
-3. `deploy/skraning.service` → systemd; `deploy/nginx.conf` → the existing
-   server block.
-4. `deploy/skraning-tasks.service` and `deploy/skraning-tasks.timer` → systemd, then
-   `sudo systemctl enable --now skraning-tasks.timer` (reminders + cleanup every 10 min,
-   same user and settings file as the app; output in `journalctl -u skraning-tasks`).
+### 1. Code and data folder
 
-Back up `data/` (the SQLite database and uploaded images).
+```bash
+sudo mkdir /srv/skraning && sudo chown $USER: /srv/skraning
+git clone git@github.com:bjornlevi/skraning.git /srv/skraning   # as yourself, with your GitHub key
+cd /srv/skraning && make install
+mkdir -p data && sudo chown -R www-data: data
+```
 
-### Email for no-reply@bjornlevi.is
+### 2. Settings
 
-Emails must not end up in spam, so the DNS for bjornlevi.is needs:
+```bash
+sudo cp deploy/skraning.env.example /etc/default/skraning
+sudo chmod 600 /etc/default/skraning
+sudo nano /etc/default/skraning
+```
 
-- **SPF**: TXT `v=spf1 a mx ip4:<server IP> ~all` (merge with any existing SPF record; only one is allowed)
-- **DKIM**: sign outgoing mail (e.g. Postfix + OpenDKIM) and publish the key as a TXT record
-- **DMARC**: TXT on `_dmarc.bjornlevi.is`: `v=DMARC1; p=none; rua=mailto:<you>`
-- **Reverse DNS (PTR)** for the server IP pointing to its hostname (set at the hosting provider)
+Set at least `BASE_URL`, `SECRET_KEY` (`python3 -c "import secrets; print(secrets.token_hex(32))"`)
+and `CREATE_PASSWORD`. The app refuses to start without the last two when
+`MAIL_BACKEND=smtp`.
 
-Many VPS providers block outbound port 25 by default. If so — or if
-bjornlevi.is already has mail hosting — it is simpler to send through that
-host with `SMTP_PORT=587`, `SMTP_STARTTLS=1` and the account's credentials;
-SPF/DKIM are then handled by the mail host.
+### 3. The web app (systemd + nginx)
+
+```bash
+sudo cp deploy/skraning.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now skraning
+curl -sI http://127.0.0.1:8018/skraning/ | head -1     # expect: HTTP/1.1 200 OK
+```
+
+Then add the `location /skraning/` block from `deploy/nginx.conf` to the
+existing `server { }` block for bjornlevi.is, and reload nginx:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 4. Reminders and cleanup (systemd timer)
+
+Every 10 minutes, `tasks.py` sends reminder emails (once per participant per
+event, 24 hours before it starts) and deletes unconfirmed registrations and
+events. A systemd timer runs it with the same user and settings file as the app.
+
+```bash
+sudo cp deploy/skraning-tasks.service deploy/skraning-tasks.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now skraning-tasks.timer
+```
+
+Check that it works:
+
+```bash
+sudo systemctl start skraning-tasks.service              # run it once now
+systemctl status skraning-tasks.service --no-pager       # expect: status=0/SUCCESS
+systemctl list-timers skraning-tasks.timer               # when it runs next
+journalctl -u skraning-tasks -n 20 --no-pager            # its output and any errors
+```
+
+If the app runs as another user than `www-data`, change `User=` in both
+`skraning.service` and `skraning-tasks.service` before copying them.
+
+### Updating
+
+```bash
+cd /srv/skraning && git pull
+sudo systemctl restart skraning
+```
+
+### Backups
+
+Back up `/srv/skraning/data/`: the SQLite database and uploaded images.
+
+## Email (no-reply@bjornlevi.is)
+
+The app hands mail to a send-only Postfix on the same server
+(`SMTP_HOST=localhost`, `SMTP_PORT=25`), which signs it with OpenDKIM and
+delivers it. DNS for bjornlevi.is is managed in the 1984 control panel.
+
+### DNS records
+
+| Name | Type | Value |
+|---|---|---|
+| `bjornlevi.is` | TXT | `v=spf1 ip4:93.95.230.205 -all` (SPF: only this server may send) |
+| `skraning._domainkey` | TXT | the DKIM public key, `v=DKIM1; h=sha256; k=rsa; p=…` (see below) |
+| `_dmarc` | TXT | `v=DMARC1; p=none` |
+
+DNSSEC is deliberately not enabled; email does not need it.
+
+### Postfix (send-only)
+
+```bash
+sudo apt install postfix        # "Internet Site", mail name: bjornlevi.is
+sudo postconf -e 'myhostname = bjornlevi.is' 'myorigin = $myhostname' \
+  'inet_interfaces = loopback-only' 'inet_protocols = ipv4' \
+  'mydestination = localhost' 'smtp_tls_security_level = may'
+```
+
+`loopback-only` means only programs on the server can send through it.
+`ipv4` matters because SPF only lists the IPv4 address. If `postconf` warns
+about duplicate entries in `/etc/postfix/main.cf`, remove the duplicates.
+
+### OpenDKIM (signing, selector `skraning`)
+
+```bash
+sudo apt install opendkim opendkim-tools
+sudo mkdir -p /etc/opendkim/keys/bjornlevi.is
+sudo opendkim-genkey -b 2048 -d bjornlevi.is -s skraning -D /etc/opendkim/keys/bjornlevi.is
+sudo chown -R opendkim:opendkim /etc/opendkim
+```
+
+In `/etc/opendkim.conf`, comment out existing `Socket` lines and add:
+
+```
+Domain            bjornlevi.is
+Selector          skraning
+KeyFile           /etc/opendkim/keys/bjornlevi.is/skraning.private
+Socket            inet:8891@localhost
+Canonicalization  relaxed/simple
+Mode              s
+```
+
+Set `SOCKET=inet:8891@localhost` in `/etc/default/opendkim`, then connect Postfix:
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl restart opendkim
+sudo postconf -e 'milter_default_action = accept' 'milter_protocol = 6' \
+  'smtpd_milters = inet:localhost:8891' 'non_smtpd_milters = inet:localhost:8891'
+sudo systemctl restart postfix
+```
+
+The value for the `skraning._domainkey` DNS record, as one line:
+
+```bash
+sudo sed -n 's/.*"\(.*\)".*/\1/p' /etc/opendkim/keys/bjornlevi.is/skraning.txt | tr -d '\n'; echo
+```
+
+If the server is rebuilt with a new key, this DNS record must be updated too.
+
+### Testing
+
+```bash
+sudo opendkim-testkey -d bjornlevi.is -s skraning -vvv    # "key OK" ("key not secure" = no DNSSEC, fine)
+printf 'From: no-reply@bjornlevi.is\nTo: you@gmail.com\nSubject: Prufa\n\nHallo\n' \
+  | sendmail -f no-reply@bjornlevi.is you@gmail.com
+sudo tail -n 20 /var/log/mail.log                          # look for status=sent
+```
+
+In Gmail, "Show original" should report SPF, DKIM and DMARC as PASS.
+Messages from a new sender may still land in spam at first; marking them
+"not spam" helps, and the app tells participants to check their spam folder.
+https://www.mail-tester.com gives a detailed score.
