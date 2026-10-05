@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% from "_macros.html" import state_badge %}
+{% block title %}Umsjón: {{ event.name }} – {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="muted small">Umsjón viðburðar</div>
+  <h1>{{ event.name }}</h1>
+  <div class="meta">
+    <span>📅 {{ event.starts_at|dtrange(event.ends_at) }}</span>
+    {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}
+    {% if event.status == 'cancelled' %}<span class="badge bad">Aflýst</span>
+    {% elif not event.listed %}<span class="badge">Ekki á forsíðu</span>{% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="small muted">Hlekkur á skráningarsíðu — deildu honum með þátttakendum:</div>
+    <p style="margin:.25rem 0 .75rem"><a href="{{ url_for('event_page', slug=event.slug) }}" class="code" style="word-break:break-all">{{ public_url }}</a></p>
+    <div class="actions">
+      <a class="btn secondary small" href="{{ url_for('edit_event', slug=event.slug) }}">Breyta viðburði</a>
+      <a class="btn secondary small" href="{{ url_for('export_csv', slug=event.slug) }}">Sækja þátttakendalista (CSV)</a>
+    </div>
+  </div>
+
+  <h2>Spil</h2>
+  {% if event.status != 'cancelled' %}
+    <p><a class="btn" href="{{ url_for('edit_queue', slug=event.slug) }}">+ Nýtt spil</a></p>
+  {% endif %}
+  {% if not queues %}<p class="muted">Engin spil enn. Bættu við spili — hvert spil hefur sinn tíma og fjölda plássa.</p>{% endif %}
+
+  {% for item in queues %}
+    {% set q = item.queue %}
+    {% set confirmed = item.standing|selectattr('state', 'equalto', 'confirmed')|list %}
+    {% set waitlisted = item.standing|selectattr('state', 'equalto', 'waitlisted')|list %}
+    <div class="panel">
+      <div class="actions" style="justify-content:space-between">
+        <div>
+          <h3>{{ q.name }} {% if not q.is_open %}<span class="badge">Lokað</span>{% endif %}</h3>
+          <div class="small">🕒 {{ q.starts_at|dtrange(q.ends_at) }}</div>
+          <div class="small muted">
+            {{ confirmed|length }}{% if q.capacity is not none %} / {{ q.capacity }}{% endif %} með pláss
+            · {{ waitlisted|length }} á biðlista
+            {% if item.pending %}· {{ item.pending }} óstaðfest{% endif %}
+          </div>
+        </div>
+        <div class="actions">
+          <a class="btn secondary small" href="{{ url_for('edit_queue', slug=event.slug, queue_id=q.id) }}">Breyta</a>
+          {% if not item.standing and not item.pending %}
+            <form method="post" action="{{ url_for('delete_queue', slug=event.slug, queue_id=q.id) }}">
+              {{ csrf_field() }}<button class="btn danger small" type="submit">Eyða</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if item.standing %}
+        <div class="table-wrap" style="margin-top:.75rem">
+          <table>
+            <thead><tr><th>#</th><th>Nafn</th><th>Netfang</th><th>Staða</th><th>Staðfest</th><th></th></tr></thead>
+            <tbody>
+              {% for r in item.standing %}
+                <tr class="{{ 'waitlist' if r.state == 'waitlisted' }}">
+                  <td>{{ loop.index }}</td>
+                  <td>{{ r.name }}</td>
+                  <td><a href="mailto:{{ r.email }}">{{ r.email }}</a></td>
+                  <td>{{ state_badge(r.state, r.position) }}</td>
+                  <td class="small muted">{{ r.verified_at|dt(false) }}</td>
+                  <td>
+                    <details>
+                      <summary class="small">Fjarlægja</summary>
+                      <form method="post" action="{{ url_for('remove_registration', slug=event.slug, reg_id=r.id) }}" style="margin-top:.4rem">
+                        {{ csrf_field() }}
+                        <button class="btn danger small" type="submit">Staðfesta</button>
+                      </form>
+                    </details>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  {% if event.status != 'cancelled' %}
+    <h2>Aflýsa viðburði</h2>
+    <details class="panel">
+      <summary>Aflýsa viðburði…</summary>
+      <form method="post" action="{{ url_for('cancel_event', slug=event.slug) }}" style="margin-top:1rem">
+        {{ csrf_field() }}
+        <div class="field">
+          <label class="lbl" for="message">Skilaboð til þátttakenda (valfrjálst)</label>
+          <textarea id="message" name="message" maxlength="2000" style="min-height:5rem"></textarea>
+        </div>
+        <div class="actions">
+          <label><input type="checkbox" name="confirm" value="1" required> Já, aflýsa og láta alla þátttakendur vita</label>
+          <button class="btn danger" type="submit">Aflýsa</button>
+        </div>
+      </form>
+    </details>
+  {% endif %}
+{% endblock %}

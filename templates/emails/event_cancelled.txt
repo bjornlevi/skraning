@@ -1,0 +1,10 @@
+Hæ {{ reg.name }},
+
+Því miður hefur viðburðinum „{{ event.name }}“, sem átti að hefjast
+{{ event.starts_at|dt }}, verið aflýst.
+{% if message %}
+Skilaboð frá {{ event.organizer_name }}:
+
+{{ message }}
+{% endif %}
+Skráning þín í „{{ reg.queue_name }}“ fellur því niður.

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "_macros.html" import lookup_form %}
+{% block title %}{{ title }} – {{ site_name }}{% endblock %}
+{% block main_class %}narrow{% endblock %}
+{% block content %}
+  <div class="panel">
+    <h1>{{ title }}</h1>
+    <p>{{ message }}</p>
+    {% if show_lookup %}{{ lookup_form() }}{% endif %}
+  </div>
+{% endblock %}

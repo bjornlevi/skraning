@@ -1,0 +1,14 @@
+# /etc/systemd/system/skraning.service
+[Unit]
+Description=Skraning (gunicorn)
+After=network.target
+
+[Service]
+User=www-data
+WorkingDirectory=/srv/skraning
+EnvironmentFile=/etc/skraning.env
+ExecStart=/srv/skraning/.venv/bin/gunicorn -w 2 -b 127.0.0.1:5003 wsgi:app
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

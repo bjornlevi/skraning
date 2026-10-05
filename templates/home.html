@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import lookup_form %}
+{% block content %}
+  <h1>Viðburðir framundan</h1>
+  {% if events %}
+    <div class="grid">
+      {% for e in events %}
+        <a class="card" href="{{ url_for('event_page', slug=e.slug) }}">
+          {% if e.image %}<img class="thumb" src="{{ url_for('upload', name=e.image) }}" alt="">{% endif %}
+          <h3>{{ e.name }}</h3>
+          <div class="muted small">{{ e.starts_at|dtrange(e.ends_at) }}</div>
+          {% if e.location %}<div class="muted small">{{ e.location }}</div>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Engir viðburðir eru skráðir framundan.</p>
+  {% endif %}
+
+  <div class="row" style="margin-top:2.5rem">
+    <div class="panel" style="flex:1 1 300px">
+      <h2 style="margin-top:0">Ertu með kóða?</h2>
+      <p class="muted small">Sláðu inn kóðann úr tölvupóstinum til að sjá stöðu skráningar eða stjórna viðburði.</p>
+      {{ lookup_form() }}
+    </div>
+    <div class="panel" style="flex:1 1 300px">
+      <h2 style="margin-top:0">Halda viðburð?</h2>
+      <p class="muted small">Stofnaðu viðburð og bættu við spilum, hvert með sinn tíma og fjölda plássa. Enginn aðgangur nauðsynlegur.</p>
+      <a class="btn" href="{{ url_for('new_event') }}">Nýr viðburður</a>
+    </div>
+  </div>
+{% endblock %}

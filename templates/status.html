@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import capacity_text %}
+{% block title %}Skráningin þín – {{ site_name }}{% endblock %}
+{% block main_class %}narrow{% endblock %}
+{% block content %}
+  <div class="panel">
+    <div class="muted small">Skráning {{ reg.name }}</div>
+    <div class="status-big">
+      {% if state == 'confirmed' %}✅ Þú átt pláss
+      {% elif state == 'waitlisted' %}⏳ Biðlisti — númer {{ position }}
+      {% elif state == 'pending' %}✉️ Óstaðfest
+      {% else %}Afskráð{% endif %}
+    </div>
+    {% if state == 'waitlisted' %}
+      <p>Ef pláss losnar færist þú sjálfkrafa upp og færð tölvupóst.</p>
+    {% elif state == 'pending' %}
+      <p>Skráningin hefur ekki verið staðfest. Smelltu á hlekkinn í tölvupóstinum.</p>
+    {% endif %}
+    {% if event.status == 'cancelled' %}<div class="error-box">Viðburðinum hefur verið aflýst.</div>{% endif %}
+
+    <h2>{{ queue.name }}</h2>
+    <div class="meta" style="margin-bottom:.5rem">
+      <span>📅 {{ queue.starts_at|dtrange(queue.ends_at) }}</span>
+      {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}
+    </div>
+    <p class="small muted">{{ capacity_text(queue, counts) }}</p>
+    {% if queue.description %}<p>{{ queue.description|nl2br }}</p>{% endif %}
+    <p><a href="{{ url_for('event_page', slug=event.slug) }}">{{ event.name }} →</a></p>
+  </div>
+
+  {% if state in ('confirmed', 'waitlisted', 'pending') and event.status != 'cancelled' %}
+    <div class="panel">
+      <h3>Afskrá mig</h3>
+      <p class="small muted">Ef þú kemst ekki skaltu afskrá þig svo næsti á biðlista fái plássið.</p>
+      <form method="post" action="{{ url_for('cancel', reg_id=reg.id) }}" class="actions">
+        {{ csrf_field() }}
+        <label><input type="checkbox" name="confirm" value="1" required> Já, afskrá mig</label>
+        <button class="btn danger" type="submit">Afskrá</button>
+      </form>
+    </div>
+  {% endif %}
+{% endblock %}

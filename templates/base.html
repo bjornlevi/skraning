@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="is">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ site_name }}{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <style>
+    :root {
+      --bg:      #f6f3ee;
+      --panel:   #ffffff;
+      --ink:     #1f1b16;
+      --muted:   #6b645a;
+      --border:  #e4ddd2;
+      --img-bg:  #ece6dc;
+      --accent:  #8c2f39;
+      --accent-ink: #ffffff;
+      --accent-light: #f6e9ea;
+      --ok:      #2f6b3a;
+      --ok-light: #e6f2e7;
+      --warn:    #8a5a00;
+      --warn-light: #fbf1dc;
+      --radius:  10px;
+      --shadow:  0 1px 3px rgba(31,27,22,.06), 0 4px 14px rgba(31,27,22,.05);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    a { color: var(--accent); }
+    h1, h2, h3 { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; line-height: 1.2; }
+    h1 { font-size: 2rem; margin: 0 0 .5rem; }
+    h2 { font-size: 1.4rem; margin: 2rem 0 .75rem; }
+    h3 { font-size: 1.15rem; margin: 0 0 .25rem; }
+
+    header.site {
+      background: var(--panel); border-bottom: 1px solid var(--border);
+      padding: .75rem 1rem;
+    }
+    header.site .inner { max-width: 960px; margin: 0 auto; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    header.site .brand { font-family: Georgia, serif; font-weight: bold; font-size: 1.25rem; color: var(--ink); text-decoration: none; }
+    header.site nav { margin-left: auto; display: flex; gap: 1rem; }
+    header.site nav a { text-decoration: none; color: var(--muted); }
+    header.site nav a:hover { color: var(--accent); }
+
+    main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+    .narrow { max-width: 640px; }
+
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; margin-bottom: 1rem; }
+    .muted { color: var(--muted); }
+    .small { font-size: .875rem; }
+    .meta { color: var(--muted); display: flex; gap: .25rem 1.25rem; flex-wrap: wrap; margin-bottom: 1rem; }
+
+    .flash { background: var(--ok-light); border: 1px solid #bcd9bf; color: var(--ok); padding: .75rem 1rem; border-radius: var(--radius); margin-bottom: 1rem; }
+    .error-box { background: var(--accent-light); border: 1px solid #e3c2c5; color: var(--accent); padding: .75rem 1rem; border-radius: var(--radius); margin-bottom: 1rem; }
+
+    /* Images are shown whole (contain), with a neutral backdrop where the shape doesn't match */
+    .cover { width: 100%; max-height: 360px; object-fit: contain; background: var(--img-bg); border-radius: var(--radius); margin-bottom: 1rem; display: block; }
+    .thumb { width: 100%; aspect-ratio: 2/1; max-height: 150px; object-fit: contain; background: var(--img-bg); border-radius: 6px; display: block; margin-bottom: .75rem; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+    /* Time slots side by side like a timetable; one slot spans the full width */
+    .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 1.5rem 1rem; align-items: start; margin-top: 1rem; }
+    .slot-head { margin: 0 0 .6rem; font-size: 1.05rem; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; display: flex; flex-direction: column; }
+    a.card { color: inherit; text-decoration: none; }
+    a.card:hover { border-color: var(--accent); }
+
+    label.queue-option { cursor: pointer; position: relative; }
+    label.queue-option input[type=radio] { position: absolute; top: 1rem; right: 1rem; width: 1.2rem; height: 1.2rem; accent-color: var(--accent); }
+    label.queue-option:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+    label.queue-option.disabled { opacity: .6; cursor: not-allowed; }
+    .queue-option h3 { padding-right: 2rem; }
+
+    .badge { display: inline-block; font-size: .8rem; font-weight: 600; padding: .15rem .55rem; border-radius: 999px; background: var(--border); color: var(--ink); }
+    .badge.ok { background: var(--ok-light); color: var(--ok); }
+    .badge.warn { background: var(--warn-light); color: var(--warn); }
+    .badge.bad { background: var(--accent-light); color: var(--accent); }
+
+    form .field { margin-bottom: 1rem; }
+    form label.lbl { display: block; font-weight: 600; margin-bottom: .25rem; }
+    input[type=text], input[type=email], input[type=password], input[type=number],
+    input[type=date], textarea {
+      width: 100%; font: inherit; padding: .55rem .7rem; border: 1px solid #cfc6b8; border-radius: 6px; background: #fff; color: var(--ink);
+    }
+    textarea { min-height: 8rem; resize: vertical; }
+    input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .row > .field { flex: 1 1 180px; }
+    .hint { font-size: .85rem; color: var(--muted); margin-top: .2rem; }
+    .err { font-size: .875rem; color: var(--accent); margin-top: .2rem; font-weight: 600; }
+    .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+    .btn { display: inline-block; font: inherit; font-weight: 600; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); padding: .55rem 1.1rem; border-radius: 6px; cursor: pointer; text-decoration: none; }
+    .btn:hover { filter: brightness(1.08); }
+    .btn.secondary { background: transparent; color: var(--accent); }
+    .btn.small { padding: .25rem .6rem; font-size: .85rem; }
+    .btn.danger { background: #fff; color: var(--accent); border-color: #d9a9ae; }
+    .actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+
+    .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .05em; }
+    .lookup { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .lookup input { flex: 1 1 200px; width: auto; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+    th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+    tr.waitlist td { color: var(--muted); }
+
+    .status-big { font-family: Georgia, serif; font-size: 1.6rem; margin: .25rem 0 .5rem; }
+    details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+    footer.site { text-align: center; color: var(--muted); font-size: .85rem; padding: 2rem 1rem; }
+  </style>
+</head>
+<body>
+  <header class="site">
+    <div class="inner">
+      <a class="brand" href="{{ url_for('home') }}">{{ site_name }}</a>
+      <nav>
+        <a href="{{ url_for('new_event') }}">Nýr viðburður</a>
+        <a href="{{ url_for('lost') }}">Týndur kóði</a>
+      </nav>
+    </div>
+  </header>
+  <main class="{% block main_class %}{% endblock %}">
+    {% for message in get_flashed_messages() %}
+      <div class="flash">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site">Persónuupplýsingar (nafn og netfang) eru eingöngu notaðar til að halda utan um skráningu á viðburðinn.</footer>
+</body>
+</html>

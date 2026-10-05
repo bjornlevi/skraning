@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import lookup_form %}
+{% block title %}Athugaðu tölvupóstinn – {{ site_name }}{% endblock %}
+{% block main_class %}narrow{% endblock %}
+{% block content %}
+  <div class="panel">
+    <h1>Athugaðu tölvupóstinn þinn</h1>
+    {% if request.args.to == 'event' %}
+      <p>Við sendum þér tölvupóst með <strong>stjórnunarkóða</strong> fyrir viðburðinn. Smelltu á hlekkinn í póstinum til að staðfesta netfangið og birta viðburðinn.</p>
+      <p class="muted small">Óstaðfestum viðburðum er eytt eftir 2 sólarhringa.</p>
+    {% elif request.args.to == 'reg' %}
+      <p>Við sendum þér tölvupóst með <strong>kóða</strong>. Smelltu á hlekkinn í póstinum til að staðfesta skráninguna — fyrr er plássið ekki tekið frá.</p>
+      <p class="muted small">Óstaðfestar skráningar falla niður eftir 24 klukkustundir.</p>
+    {% else %}
+      <p>Ef netfangið tengist einhverjum skráningum eða viðburðum sendum við nýja kóða á það. Eldri kóðar hætta að virka.</p>
+    {% endif %}
+    <p class="muted small">Sérðu ekki póstinn? Athugaðu ruslpóstsmöppuna.</p>
+    <h2>Ertu komin/n með kóðann?</h2>
+    {{ lookup_form() }}
+  </div>
+{% endblock %}

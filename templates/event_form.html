@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "_macros.html" import err, honeypot, time_input %}
+{% block title %}{{ 'Nýr viðburður' if creating else 'Breyta viðburði' }} – {{ site_name }}{% endblock %}
+{% block main_class %}narrow{% endblock %}
+{% block content %}
+  {% if not creating %}<p class="small"><a href="{{ url_for('admin', slug=event.slug) }}">← Umsjón viðburðar</a></p>{% endif %}
+  <h1>{{ 'Nýr viðburður' if creating else 'Breyta viðburði' }}</h1>
+  {% if errors.form %}<div class="error-box">{{ errors.form }}</div>{% endif %}
+  {% if errors and not errors.form %}<div class="error-box">Lagfærðu villurnar hér að neðan.</div>{% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="panel">
+    {{ csrf_field() }}{{ honeypot() }}
+
+    <div class="field">
+      <label class="lbl" for="name">Heiti viðburðar</label>
+      <input type="text" id="name" name="name" value="{{ values.get('name', '') }}" required maxlength="150">
+      {{ err(errors, 'name') }}
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="lbl" for="date">Hefst</label>
+        <input type="date" id="date" name="date" value="{{ values.get('date', '') }}" required>
+      </div>
+      <div class="field">
+        <label class="lbl" for="time">kl.</label>
+        {{ time_input('time', values.get('time'), required=True) }}
+      </div>
+    </div>
+    {{ err(errors, 'date') }}
+    <div class="row">
+      <div class="field">
+        <label class="lbl" for="end_date">Lýkur</label>
+        <input type="date" id="end_date" name="end_date" value="{{ values.get('end_date', '') }}">
+        <div class="hint">Autt = sami dagur.</div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="end_time">kl.</label>
+        {{ time_input('end_time', values.get('end_time'), required=True, placeholder='23:00') }}
+      </div>
+    </div>
+    {{ err(errors, 'end') }}
+    <div class="hint" style="margin:-.5rem 0 1rem">Öll spil viðburðarins þurfa að rúmast innan þessa tíma.</div>
+
+    <div class="field">
+      <label class="lbl" for="location">Staðsetning</label>
+      <input type="text" id="location" name="location" value="{{ values.get('location', '') }}" maxlength="300">
+      {{ err(errors, 'location') }}
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="description">Lýsing</label>
+      <textarea id="description" name="description" maxlength="10000">{{ values.get('description', '') }}</textarea>
+      {{ err(errors, 'description') }}
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="image">Mynd</label>
+      {% if not creating and event.image %}
+        <img class="thumb" src="{{ url_for('upload', name=event.image) }}" alt="" style="max-width:240px">
+        <label class="small"><input type="checkbox" name="remove_image" value="1"> Fjarlægja mynd</label>
+      {% endif %}
+      <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp,image/gif">
+      <div class="hint">Valfrjálst. JPG, PNG eða WebP, hámark 10 MB.</div>
+      {{ err(errors, 'image') }}
+    </div>
+
+    <details {% if errors.registration_opens or errors.registration_closes or errors.max_per_person %}open{% endif %}>
+      <summary>Fleiri stillingar</summary>
+      <div style="margin-top:1rem">
+        <div class="row">
+          <div class="field">
+            <label class="lbl" for="registration_opens_date">Skráning opnar</label>
+            <input type="date" id="registration_opens_date" name="registration_opens_date" value="{{ values.get('registration_opens_date', '') }}">
+          </div>
+          <div class="field">
+            <label class="lbl" for="registration_opens_time">kl.</label>
+            {{ time_input('registration_opens_time', values.get('registration_opens_time'), placeholder='12:00') }}
+          </div>
+        </div>
+        <div class="hint" style="margin:-.5rem 0 .25rem">Autt = opnar strax.</div>
+        {{ err(errors, 'registration_opens') }}
+        <div class="row" style="margin-top:1rem">
+          <div class="field">
+            <label class="lbl" for="registration_closes_date">Skráningu lýkur</label>
+            <input type="date" id="registration_closes_date" name="registration_closes_date" value="{{ values.get('registration_closes_date', '') }}">
+          </div>
+          <div class="field">
+            <label class="lbl" for="registration_closes_time">kl.</label>
+            {{ time_input('registration_closes_time', values.get('registration_closes_time'), placeholder='12:00') }}
+          </div>
+        </div>
+        <div class="hint" style="margin:-.5rem 0 .25rem">Autt = hvert spil er opið þar til það hefst.</div>
+        {{ err(errors, 'registration_closes') }}
+        <div style="margin-bottom:1rem"></div>
+        <div class="field">
+          <label class="lbl" for="max_per_person">Hámarksfjöldi spila á mann</label>
+          <input type="number" id="max_per_person" name="max_per_person" min="1" max="50" value="{{ values.get('max_per_person', '') }}" style="max-width:8rem">
+          <div class="hint">Autt = ótakmarkað. Óháð þessu getur enginn skráð sig í tvö spil sem skarast í tíma.</div>
+          {{ err(errors, 'max_per_person') }}
+        </div>
+        <div class="field">
+          <label><input type="checkbox" name="listed" value="1" {% if values.get('listed') %}checked{% endif %}> Sýna viðburðinn á forsíðu</label>
+          <div class="hint">Ef ekki er hakað er aðeins hægt að finna hann með beinum hlekk.</div>
+        </div>
+      </div>
+    </details>
+
+    {% if creating %}
+      <h2>Umsjónaraðili</h2>
+      <div class="row">
+        <div class="field">
+          <label class="lbl" for="organizer_name">Nafn</label>
+          <input type="text" id="organizer_name" name="organizer_name" value="{{ values.get('organizer_name', '') }}" required maxlength="100">
+          {{ err(errors, 'organizer_name') }}
+        </div>
+        <div class="field">
+          <label class="lbl" for="organizer_email">Netfang</label>
+          <input type="email" id="organizer_email" name="organizer_email" value="{{ values.get('organizer_email', '') }}" required>
+          {{ err(errors, 'organizer_email') }}
+        </div>
+      </div>
+      <p class="hint">Stjórnunarkóði viðburðarins er sendur á þetta netfang. Nafnið birtist á síðu viðburðarins.</p>
+      {% if need_password %}
+        <div class="field">
+          <label class="lbl" for="create_password">Lykilorð félagsins</label>
+          <input type="password" id="create_password" name="create_password" required>
+          {{ err(errors, 'create_password') }}
+        </div>
+      {% endif %}
+    {% endif %}
+
+    <div class="actions" style="margin-top:1rem">
+      <button class="btn" type="submit">{{ 'Stofna viðburð' if creating else 'Vista' }}</button>
+      {% if not creating %}<a href="{{ url_for('admin', slug=event.slug) }}">Hætta við</a>{% endif %}
+    </div>
+  </form>
+{% endblock %}

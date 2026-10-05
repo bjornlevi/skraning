@@ -1,0 +1,10 @@
+Hæ,
+
+Hér eru nýir kóðar fyrir skráningar og viðburði sem tengjast
+þessu netfangi. Eldri kóðar virka ekki lengur.
+{% for item in items %}
+{{ item.label }}
+  Kóði:   {{ item.code }}
+  Hlekkur: {{ item.link }}
+{% endfor %}
+Ef þú baðst ekki um þetta getur þú hunsað þennan póst.

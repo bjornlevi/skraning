@@ -1,0 +1,15 @@
+Hæ {{ values.organizer_name }},
+
+Viðburðurinn „{{ values.name }}“ hefur verið stofnaður.
+
+Smelltu á hlekkinn til að staðfesta netfangið og birta viðburðinn:
+{{ link }}
+
+Stjórnunarkóðinn þinn er:  {{ code }}
+
+Geymdu þennan póst. Með kóðanum getur þú bætt við spilum,
+séð þátttakendur og breytt viðburðinum. Hver sem hefur kóðann getur
+stjórnað viðburðinum, svo ekki deila honum.
+
+Ef þú stofnaðir ekki þennan viðburð getur þú hunsað þennan póst;
+honum verður eytt sjálfkrafa.

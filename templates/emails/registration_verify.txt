@@ -1,0 +1,20 @@
+Hæ {{ name }},
+
+Takk fyrir skráninguna á „{{ event.name }}“ – {{ queue.name }}.
+
+Smelltu á hlekkinn til að staðfesta skráninguna:
+{{ link }}
+
+Skráningin er ekki virk fyrr en hún hefur verið staðfest, og sæti
+á biðlista ræðst af því hvenær staðfest er. Óstaðfestar skráningar
+falla niður eftir 24 klukkustundir.
+
+Kóðinn þinn er:  {{ code }}
+
+Með kóðanum getur þú séð stöðu skráningarinnar og afskráð þig.
+
+Viðburður: {{ event.name }}
+Hvenær:    {{ queue.starts_at|dtrange(queue.ends_at) }}
+{% if event.location %}Hvar:      {{ event.location }}
+{% endif %}
+Ef þú skráðir þig ekki getur þú hunsað þennan póst.

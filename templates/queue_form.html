@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% from "_macros.html" import err, time_input %}
+{% block title %}{{ 'Breyta spili' if queue else 'Nýtt spil' }} – {{ site_name }}{% endblock %}
+{% block main_class %}narrow{% endblock %}
+{% block content %}
+  <p class="small"><a href="{{ url_for('admin', slug=event.slug) }}">← {{ event.name }}</a></p>
+  <h1>{{ 'Breyta spili' if queue else 'Nýtt spil' }}</h1>
+  {% if errors %}<div class="error-box">Lagfærðu villurnar hér að neðan.</div>{% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="panel">
+    {{ csrf_field() }}
+    <div class="field">
+      <label class="lbl" for="name">Heiti</label>
+      <input type="text" id="name" name="name" value="{{ values.get('name', '') }}" required maxlength="150">
+      {{ err(errors, 'name') }}
+    </div>
+
+    <fieldset class="field" style="border:0;padding:0;margin:0 0 1rem">
+      <label class="lbl">Tími</label>
+      {% if slots %}
+        <div class="actions small" style="margin-bottom:.5rem">
+          <span class="muted">Sami tími og:</span>
+          {% for slot in slots %}
+            <button type="button" class="btn secondary small slot-pick"
+                    data-date="{{ slot.date }}" data-start="{{ slot.start_time }}" data-end="{{ slot.end_time }}">
+              {{ slot.label }} ({{ slot.count }})
+            </button>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <div class="row">
+        <div class="field" style="margin-bottom:0">
+          <label class="small" for="date">Dagur</label>
+          <input type="date" id="date" name="date" value="{{ values.get('date', '') }}" required>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="small" for="start_time">Hefst kl.</label>
+          {{ time_input('start_time', values.get('start_time'), required=True) }}
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="small" for="end_time">Lýkur kl.</label>
+          {{ time_input('end_time', values.get('end_time'), required=True, placeholder='17:00') }}
+        </div>
+      </div>
+      <div class="hint">Innan viðburðarins: {{ event.starts_at|dtrange(event.ends_at) }}. Ef lokatími er fyrr en upphafstími (t.d. 22:00–02:00) lýkur spilinu daginn eftir.</div>
+      {{ err(errors, 'time') }}
+    </fieldset>
+
+    <div class="field">
+      <label class="lbl" for="capacity">Fjöldi plássa</label>
+      <input type="number" id="capacity" name="capacity" min="0" value="{{ values.get('capacity', '') }}" style="max-width:8rem">
+      <div class="hint">Eftir þennan fjölda fara skráningar á biðlista. Autt = ótakmarkað.</div>
+      {{ err(errors, 'capacity') }}
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="description">Lýsing</label>
+      <textarea id="description" name="description" maxlength="10000">{{ values.get('description', '') }}</textarea>
+      {{ err(errors, 'description') }}
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="image">Mynd</label>
+      {% if queue and queue.image %}
+        <img class="thumb" src="{{ url_for('upload', name=queue.image) }}" alt="" style="max-width:240px">
+        <label class="small"><input type="checkbox" name="remove_image" value="1"> Fjarlægja mynd</label>
+      {% endif %}
+      <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp,image/gif">
+      {{ err(errors, 'image') }}
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="lbl" for="sort_order">Birtingarröð</label>
+        <input type="number" id="sort_order" name="sort_order" value="{{ values.get('sort_order', 0) }}" style="max-width:8rem">
+        <div class="hint">Ræður röð spila sem eru á sama tíma. Lægri tala birtist fyrst.</div>
+      </div>
+      <div class="field">
+        <label class="lbl">&nbsp;</label>
+        <label><input type="checkbox" name="is_open" value="1" {% if values.get('is_open') %}checked{% endif %}> Opið fyrir skráningu</label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="submit">{{ 'Vista' if queue else 'Stofna spil' }}</button>
+      <a href="{{ url_for('admin', slug=event.slug) }}">Hætta við</a>
+    </div>
+  </form>
+  <script>
+    document.querySelectorAll(".slot-pick").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        document.getElementById("date").value = btn.dataset.date;
+        document.getElementById("start_time").value = btn.dataset.start;
+        document.getElementById("end_time").value = btn.dataset.end;
+      });
+    });
+  </script>
+{% endblock %}

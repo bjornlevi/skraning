@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% from "_macros.html" import err, honeypot, state_badge, capacity_text %}
+{% block title %}{{ event.name }} – {{ site_name }}{% endblock %}
+{% block content %}
+  {% if is_admin %}
+    <p class="small"><a href="{{ url_for('admin', slug=event.slug) }}">← Umsjón viðburðar</a></p>
+  {% endif %}
+
+  {% if event.image %}<img class="cover" src="{{ url_for('upload', name=event.image) }}" alt="">{% endif %}
+  <h1>{{ event.name }}</h1>
+  <div class="meta">
+    <span>📅 {{ event.starts_at|dtrange(event.ends_at) }}</span>
+    {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}
+    <span>Umsjón: {{ event.organizer_name }}</span>
+  </div>
+  {% if event.description %}<div class="panel">{{ event.description|nl2br }}</div>{% endif %}
+
+  {% if mine %}
+    <div class="panel">
+      <h3>Skráningarnar þínar</h3>
+      <ul>
+        {% for m in mine %}
+          <li><a href="{{ url_for('status', reg_id=m.reg.id) }}">{{ m.reg.queue_name }}</a>
+              <span class="small muted">{{ m.reg.queue_starts_at|dtrange(m.reg.queue_ends_at) }}</span>
+              {{ state_badge(m.state, m.position) }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <h2>Skráning</h2>
+  {% if closed_reason %}<div class="error-box">{{ closed_reason }}</div>{% endif %}
+  {% if errors.form %}<div class="error-box">{{ errors.form }}</div>{% endif %}
+
+  {% if not slots %}
+    <p class="muted">Engin spil hafa verið sett upp enn.</p>
+  {% else %}
+  <form method="post" action="{{ url_for('register', slug=event.slug) }}#skraning">
+    {{ csrf_field() }}{{ honeypot() }}
+    <p class="muted small">
+      Veldu eitt spil í einu. Ekki er hægt að skrá sig í tvö spil sem skarast í tíma{% if event.max_per_person %},
+      og hver þátttakandi má skrá sig í mest {{ event.max_per_person }} spil{% endif %}.
+    </p>
+    <div class="slots">
+    {% for slot in slots %}
+      <section class="slot">
+      <h3 class="slot-head">🕒 {{ slot.starts_at|slot_label(slot.ends_at, event) }}</h3>
+      <div class="grid">
+        {% for item in slot['items'] %}
+          {% set q = item.queue %}{% set c = item.counts %}
+          {% set disabled = closed_reason or item.closed or item.registered or item.clash %}
+          <label class="card queue-option{% if disabled %} disabled{% endif %}">
+            <input type="radio" name="queue_id" value="{{ q.id }}" required
+                   {% if disabled %}disabled{% endif %}
+                   {% if form.get('queue_id') == q.id|string %}checked{% endif %}>
+            {% if q.image %}<img class="thumb" src="{{ url_for('upload', name=q.image) }}" alt="">{% endif %}
+            <h3>{{ q.name }}</h3>
+            <div style="margin:.4rem 0">
+              {% if item.registered %}<span class="badge ok">Þú ert skráð/ur</span>
+              {% elif item.closed %}<span class="badge">{{ item.closed }}</span>
+              {% elif q.capacity is not none and not c.free %}<span class="badge warn">{{ capacity_text(q, c) }}</span>
+              {% else %}<span class="badge ok">{{ capacity_text(q, c) }}</span>{% endif %}
+            </div>
+            {% if item.clash and not item.registered %}
+              <div class="small muted">Skarast á við „{{ item.clash.queue_name }}“ sem þú ert skráð/ur í.</div>
+            {% endif %}
+            {% if q.description %}<div class="small">{{ q.description|nl2br }}</div>{% endif %}
+            {% if not disabled and q.capacity is not none and not c.free %}
+              <div class="small muted" style="margin-top:auto;padding-top:.5rem">Skráning fer á biðlista.</div>
+            {% endif %}
+          </label>
+        {% endfor %}
+      </div>
+      </section>
+    {% endfor %}
+    </div>
+    {{ err(errors, 'queue_id') }}
+
+    {% if not closed_reason %}
+    <div class="panel" id="skraning" style="margin-top:1rem">
+      <div class="row">
+        <div class="field">
+          <label class="lbl" for="name">Nafn</label>
+          <input type="text" id="name" name="name" value="{{ form.get('name', '') }}" required maxlength="100" autocomplete="name">
+          {{ err(errors, 'name') }}
+        </div>
+        <div class="field">
+          <label class="lbl" for="email">Netfang</label>
+          <input type="email" id="email" name="email" value="{{ form.get('email', '') }}" required autocomplete="email">
+          {{ err(errors, 'email') }}
+        </div>
+      </div>
+      <p class="hint">Þú færð tölvupóst með kóða og hlekk til að staðfesta skráninguna.</p>
+      <button class="btn" type="submit">Skrá mig</button>
+    </div>
+    {% endif %}
+  </form>
+  {% endif %}
+{% endblock %}

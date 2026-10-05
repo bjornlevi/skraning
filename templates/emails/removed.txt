@@ -1,0 +1,7 @@
+Hæ {{ reg.name }},
+
+Umsjónaraðili viðburðarins „{{ event.name }}“ hefur fellt niður
+skráningu þína í „{{ queue.name }}“.
+
+Ef þú telur þetta vera mistök skaltu hafa samband við umsjónaraðila
+viðburðarins ({{ event.organizer_name }}).

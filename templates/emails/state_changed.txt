@@ -1,0 +1,19 @@
+Hæ {{ reg.name }},
+
+{% if reg.state == 'confirmed' -%}
+Góðar fréttir! Pláss losnaði og þú átt nú pláss í „{{ queue.name }}“
+á viðburðinum „{{ event.name }}“.
+
+Ef þú kemst ekki, vinsamlegast afskráðu þig svo næsti á biðlista
+fái plássið.
+{%- else -%}
+Vegna breytinga á fjölda plássa í „{{ queue.name }}“ á viðburðinum
+„{{ event.name }}“ ert þú nú númer {{ reg.position }} á biðlista.
+Ef pláss losnar færð þú tölvupóst.
+{%- endif %}
+
+Hvenær: {{ queue.starts_at|dtrange(queue.ends_at) }}
+{% if event.location %}Hvar:   {{ event.location }}
+{% endif %}
+Skoða skráningu:
+{{ link }}

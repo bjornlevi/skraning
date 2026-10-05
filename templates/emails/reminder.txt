@@ -1,0 +1,14 @@
+Hæ {{ name }},
+
+Áminning: „{{ event.name }}“ hefst {{ event.starts_at|dt }}.
+{% if event.location %}Hvar: {{ event.location }}
+{% endif %}
+Skráningarnar þínar:
+{% for g in games %}
+{{ g.reg.queue_name }}
+  {{ g.reg.queue_starts_at|dtrange(g.reg.queue_ends_at) }}
+  {% if g.state == 'confirmed' %}Þú átt pláss.{% else %}Þú ert númer {{ g.position }} á biðlista — þú færð póst ef pláss losnar.{% endif %}
+  Skoða eða afskrá: {{ g.link }}
+{% endfor %}
+Ef þú kemst ekki, vinsamlegast afskráðu þig svo næsti á biðlista
+fái plássið.
