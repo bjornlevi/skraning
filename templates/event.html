@@ -37,8 +37,14 @@
   {% else %}
   <form method="post" action="{{ url_for('register', slug=event.slug) }}#skraning">
     {{ csrf_field() }}{{ honeypot() }}
+    {% if not closed_reason %}
+    <ol class="steps">
+      <li><strong>Veldu spil</strong> hér að neðan.</li>
+      <li><strong>Skráðu nafn og netfang</strong> — þú færð tölvupóst til að staðfesta skráninguna.</li>
+    </ol>
+    {% endif %}
     <p class="muted small">
-      Veldu eitt spil í einu. Ekki er hægt að skrá sig í tvö spil sem skarast í tíma{% if event.max_per_person %},
+      Eitt spil í einu. Ekki er hægt að skrá sig í tvö spil sem skarast í tíma{% if event.max_per_person %},
       og hver þátttakandi má skrá sig í mest {{ event.max_per_person }} spil{% endif %}.
     </p>
     <div class="slots">
@@ -51,6 +57,7 @@
           {% set disabled = closed_reason or item.closed or item.registered or item.clash %}
           <label class="card queue-option{% if disabled %} disabled{% endif %}">
             <input type="radio" name="queue_id" value="{{ q.id }}" required
+                   data-label="{{ q.name }}" data-time="{{ q.starts_at|slot_label(q.ends_at, event) }}"
                    {% if disabled %}disabled{% endif %}
                    {% if form.get('queue_id') == q.id|string %}checked{% endif %}>
             {% if q.image %}<img class="thumb" src="{{ url_for('upload', name=q.image) }}" alt="">{% endif %}
@@ -77,7 +84,10 @@
     {{ err(errors, 'queue_id') }}
 
     {% if not closed_reason %}
-    <div class="panel" id="skraning" style="margin-top:1rem">
+    <div class="panel pick-hint">👆 Veldu spil hér að ofan til að skrá þig.</div>
+    {# Shown once a game is picked; sticks to the bottom of the window while the games scroll by #}
+    <div class="panel register-panel" id="skraning">
+      <h3 class="register-title">Skrá í <span id="picked">valið spil</span></h3>
       <div class="row">
         <div class="field">
           <label class="lbl" for="name">Nafn</label>
@@ -90,10 +100,25 @@
           {{ err(errors, 'email') }}
         </div>
       </div>
-      <p class="hint">Þú færð tölvupóst með kóða og hlekk til að staðfesta skráninguna.</p>
-      <button class="btn" type="submit">Skrá mig</button>
+      <div class="actions">
+        <button class="btn" type="submit">Skrá mig</button>
+        <span class="hint">Þú færð tölvupóst með kóða og hlekk til að staðfesta skráninguna.</span>
+      </div>
     </div>
     {% endif %}
   </form>
+  <script>
+    (function () {
+      var picked = document.getElementById("picked");
+      function update() {
+        var r = document.querySelector('input[name="queue_id"]:checked');
+        if (r && picked) picked.textContent = "„" + r.dataset.label + "“ · " + r.dataset.time;
+      }
+      document.querySelectorAll('input[name="queue_id"]').forEach(function (r) {
+        r.addEventListener("change", update);
+      });
+      update();
+    })();
+  </script>
   {% endif %}
 {% endblock %}

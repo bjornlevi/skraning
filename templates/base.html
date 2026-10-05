@@ -63,6 +63,18 @@
     /* Time slots side by side like a timetable; one slot spans the full width */
     .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 1.5rem 1rem; align-items: start; margin-top: 1rem; }
     .slot-head { margin: 0 0 .6rem; font-size: 1.05rem; }
+
+    /* Registration: step list, then a form that appears once a game is picked */
+    .steps { margin: 0 0 .5rem; padding-left: 1.4rem; }
+    .steps li { margin: .15rem 0; }
+    .pick-hint { margin-top: 1rem; text-align: center; color: var(--muted); }
+    .register-panel { position: sticky; bottom: .75rem; z-index: 5; margin-top: 1rem;
+                      border: 2px solid var(--accent); box-shadow: 0 -4px 24px rgba(31,27,22,.18); }
+    .register-title { margin-bottom: .75rem; }
+    .register-panel .field { margin-bottom: .75rem; }
+    /* Browsers without :has() simply show both, as before */
+    form:has(input[name=queue_id]:checked) .pick-hint { display: none; }
+    form:not(:has(input[name=queue_id]:checked)) .register-panel { display: none; }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; display: flex; flex-direction: column; }
     a.card { color: inherit; text-decoration: none; }
     a.card:hover { border-color: var(--accent); }
