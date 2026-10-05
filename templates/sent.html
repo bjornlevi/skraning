@@ -14,7 +14,11 @@
     {% else %}
       <p>Ef netfangið tengist einhverjum skráningum eða viðburðum sendum við nýja kóða á það. Eldri kóðar hætta að virka.</p>
     {% endif %}
-    <p class="muted small">Sérðu ekki póstinn? Athugaðu ruslpóstsmöppuna.</p>
+    <div class="notice">
+      <strong>Sérðu ekki póstinn?</strong> Athugaðu <strong>ruslpóstinn</strong> (spam / junk).
+      Ef hann er þar, merktu hann sem „ekki ruslpóst“ svo næstu póstar, t.d. áminningin, berist í innhólfið.
+      <div class="small" style="margin-top:.35rem">Pósturinn kemur frá <span class="code" style="white-space:nowrap">{{ config.MAIL_FROM }}</span> og berst venjulega innan fárra mínútna.</div>
+    </div>
     <h2>Ertu komin/n með kóðann?</h2>
     {{ lookup_form() }}
   </div>
