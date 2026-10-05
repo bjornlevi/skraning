@@ -40,9 +40,17 @@
             · {{ waitlisted|length }} á biðlista
             {% if item.pending %}· {{ item.pending }} óstaðfest{% endif %}
           </div>
+          {% if q.runner_email %}
+            <div class="small">Stjórnandi: {{ q.runner_name or '' }} <span class="muted">&lt;{{ q.runner_email }}&gt;</span></div>
+          {% endif %}
         </div>
         <div class="actions">
           <a class="btn secondary small" href="{{ url_for('edit_queue', slug=event.slug, queue_id=q.id) }}">Breyta</a>
+          {% if q.runner_email and event.status != 'cancelled' %}
+            <form method="post" action="{{ url_for('reinvite_runner', slug=event.slug, queue_id=q.id) }}">
+              {{ csrf_field() }}<button class="btn secondary small" type="submit" title="Nýr kóði er sendur og sá gamli hættir að virka">Senda boð aftur</button>
+            </form>
+          {% endif %}
           {% if not item.standing and not item.pending %}
             <form method="post" action="{{ url_for('delete_queue', slug=event.slug, queue_id=q.id) }}">
               {{ csrf_field() }}<button class="btn danger small" type="submit">Eyða</button>

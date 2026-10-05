@@ -1,6 +1,7 @@
 -- All timestamps are stored as UTC text: "YYYY-MM-DD HH:MM:SS".
--- Bump SCHEMA_VERSION in db.py together with user_version below.
-PRAGMA user_version = 1;
+-- This is the latest version. When changing it, bump user_version below and
+-- SCHEMA_VERSION in db.py, and add the upgrade statements to MIGRATIONS there.
+PRAGMA user_version = 2;
 
 CREATE TABLE IF NOT EXISTS events (
     id                      INTEGER PRIMARY KEY,
@@ -33,9 +34,15 @@ CREATE TABLE IF NOT EXISTS queues (
     starts_at    TEXT    NOT NULL,   -- within the event's start/end
     ends_at      TEXT    NOT NULL,
     sort_order   INTEGER NOT NULL DEFAULT 0,
-    is_open      INTEGER NOT NULL DEFAULT 1
+    is_open      INTEGER NOT NULL DEFAULT 1,
+    -- Optional game runner, who gets their own code to edit this game
+    runner_name              TEXT,
+    runner_email             TEXT,
+    runner_code_hash         TEXT,
+    runner_reminder_sent_at  TEXT
 );
 CREATE INDEX IF NOT EXISTS queues_event ON queues(event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS queues_runner_code ON queues(runner_code_hash);
 
 CREATE TABLE IF NOT EXISTS registrations (
     id                   INTEGER PRIMARY KEY,

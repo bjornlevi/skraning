@@ -1,0 +1,19 @@
+Hæ{% if name %} {{ name }}{% endif %},
+
+Áminning: „{{ event.name }}“ hefst {{ event.starts_at|dt_acc }}.
+{% if event.location %}Hvar: {{ event.location }}
+{% endif %}{% for g in games %}
+{{ g.queue.name }}
+  {{ g.queue.starts_at|dtrange(g.queue.ends_at) }}
+
+  Spilarar ({{ g.confirmed|length }}{% if g.queue.capacity is not none %} af {{ g.queue.capacity }}{% endif %}):
+{% for r in g.confirmed %}    {{ loop.index }}. {{ r.name }} <{{ r.email }}>
+{% else %}    Enginn skráður enn.
+{% endfor %}{% if g.waitlisted %}
+  Á biðlista:
+{% for r in g.waitlisted %}    {{ loop.index }}. {{ r.name }} <{{ r.email }}>
+{% endfor %}{% endif %}
+  Spilið þitt: {{ g.link }}
+{% endfor %}
+Listinn getur breyst ef fólk afskráir sig; nýjasta útgáfan er alltaf
+á síðu spilsins.

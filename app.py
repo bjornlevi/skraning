@@ -222,6 +222,17 @@ def registration_link(reg) -> str:
                         sig=link_sig("r", reg["id"], reg["access_code_hash"]))
 
 
+def runner_link(queue) -> str:
+    return external_url("signed_access", kind="g", obj_id=queue["id"],
+                        sig=link_sig("g", queue["id"], queue["runner_code_hash"]))
+
+
+def runner_grant_key(queue) -> str:
+    """Session key for a game runner. Includes part of the code hash, so access ends
+    when the organizer changes or removes the runner (which replaces the code)."""
+    return f"{queue['id']}:{(queue['runner_code_hash'] or '')[:16]}"
+
+
 def event_admin_link(event) -> str:
     return external_url("signed_access", kind="e", obj_id=event["id"],
                         sig=link_sig("e", event["id"], event["admin_code_hash"]))
@@ -250,6 +261,14 @@ def save_image(file) -> str | None:
 def delete_image(name: str | None) -> None:
     if name:
         (Path(current_app.config["UPLOAD_DIR"]) / name).unlink(missing_ok=True)
+
+
+def replace_image(current: str | None, new_image: str | None) -> str | None:
+    """Keep, replace or remove a stored image according to the submitted form."""
+    if new_image or request.form.get("remove_image"):
+        delete_image(current)
+        return new_image
+    return current
 
 
 def grant(kind: str, obj_id: int) -> None:
@@ -316,6 +335,18 @@ def notify_state_changes(changed: list[dict], event, queue) -> None:
             subject = f"Breyting á skráningu: {queue['name']} – {event['name']}"
         mail.send(reg["email"], subject, "state_changed.txt",
                   reg=reg, event=event, queue=queue, link=registration_link(reg))
+
+
+def invite_runner(event, queue) -> bool:
+    """Give the game's runner a new code (replacing any old one) and email it."""
+    db = get_db()
+    code = new_code()
+    with db:
+        db.execute("UPDATE queues SET runner_code_hash = ?, runner_reminder_sent_at = NULL WHERE id = ?",
+                   (hash_code(code), queue["id"]))
+    return mail.send(queue["runner_email"], f"Þú stjórnar „{queue['name']}“ – {event['name']}",
+                     "runner_invite.txt", event=event, queue=queue, code=code,
+                     link=external_url("access", code=code))
 
 
 def cancel_registration(reg, event, queue) -> None:
@@ -398,8 +429,8 @@ def parse_event_form(form, creating: bool) -> tuple[dict, dict]:
     return values, errors
 
 
-def parse_queue_form(form, event) -> tuple[dict, dict]:
-    errors: dict[str, str] = {}
+def parse_game_details(form, errors: dict) -> dict:
+    """Name, description and capacity: the fields both organizers and game runners edit."""
     name = form.get("name", "").strip()
     description = form.get("description", "").strip()
     if not name:
@@ -417,6 +448,19 @@ def parse_queue_form(form, event) -> tuple[dict, dict]:
                 raise ValueError
         except ValueError:
             errors["capacity"] = "Sláðu inn jákvæða heiltölu eða hafðu autt."
+    return {"name": name, "description": description, "capacity": capacity}
+
+
+def parse_queue_form(form, event) -> tuple[dict, dict]:
+    errors: dict[str, str] = {}
+    details = parse_game_details(form, errors)
+
+    runner_name = form.get("runner_name", "").strip()
+    runner_email = form.get("runner_email", "").strip().lower()
+    if len(runner_name) > 100:
+        errors["runner_name"] = "Nafnið er of langt."
+    if runner_email and not valid_email(runner_email):
+        errors["runner_email"] = "Ógilt netfang."
 
     starts = parse_local(form.get("date", ""), form.get("start_time", ""))
     ends = parse_local(form.get("date", ""), form.get("end_time", ""))
@@ -436,13 +480,13 @@ def parse_queue_form(form, event) -> tuple[dict, dict]:
         sort_order = 0
 
     return {
-        "name": name,
-        "description": description,
-        "capacity": capacity,
+        **details,
         "starts_at": to_db(starts),
         "ends_at": to_db(ends),
         "sort_order": sort_order,
         "is_open": 1 if form.get("is_open") else 0,
+        "runner_name": runner_name or None,
+        "runner_email": runner_email or None,
     }, errors
 
 
@@ -486,6 +530,8 @@ def queue_form_values(queue) -> dict:
         "start_time": local_input(queue["starts_at"], "%H:%M"),
         "end_time": local_input(queue["ends_at"], "%H:%M"),
         "is_open": "1" if queue["is_open"] else "",
+        "runner_name": queue["runner_name"] or "",
+        "runner_email": queue["runner_email"] or "",
     }
 
 
@@ -745,6 +791,10 @@ def create_app(overrides: dict | None = None) -> Flask:
         grant("regs", reg["id"])
         return redirect(url_for("status", reg_id=reg["id"]))
 
+    def open_game(queue):
+        grant("games", runner_grant_key(queue))
+        return redirect(url_for("runner", queue_id=queue["id"]))
+
     @app.route("/c/<code>")
     def access(code):
         ip_key = f"code-fail:{client_ip()}"
@@ -758,6 +808,9 @@ def create_app(overrides: dict | None = None) -> Flask:
         reg = db.execute("SELECT * FROM registrations WHERE access_code_hash = ?", (h,)).fetchone()
         if reg:
             return open_registration(reg)
+        queue = db.execute("SELECT * FROM queues WHERE runner_code_hash = ?", (h,)).fetchone()
+        if queue:
+            return open_game(queue)
         rate_hit(ip_key)
         return render_template("message.html", title="Kóði fannst ekki",
                                message="Enginn viðburður eða skráning fannst með þessum kóða.",
@@ -767,16 +820,18 @@ def create_app(overrides: dict | None = None) -> Flask:
     def signed_access(kind, obj_id, sig):
         db = get_db()
         table, column = {"e": ("events", "admin_code_hash"),
-                         "r": ("registrations", "access_code_hash")}.get(kind, (None, None))
+                         "r": ("registrations", "access_code_hash"),
+                         "g": ("queues", "runner_code_hash")}.get(kind, (None, None))
         if table is None:
             abort(404)
         row = db.execute(f"SELECT * FROM {table} WHERE id = ?", (obj_id,)).fetchone()
-        if row is None or not secrets.compare_digest(sig, link_sig(kind, obj_id, row[column])):
+        if (row is None or row[column] is None
+                or not secrets.compare_digest(sig, link_sig(kind, obj_id, row[column]))):
             return render_template("message.html", title="Hlekkur útrunninn",
                                    message="Þessi hlekkur er ekki lengur gildur. Notaðu kóðann "
                                            "eða „Týndur kóði“ til að fá nýjan.",
                                    show_lookup=True), 404
-        return open_event(row) if kind == "e" else open_registration(row)
+        return {"e": open_event, "r": open_registration, "g": open_game}[kind](row)
 
     @app.route("/lookup", methods=["POST"])
     def lookup():
@@ -822,6 +877,16 @@ def create_app(overrides: dict | None = None) -> Flask:
                            (hash_code(code), reg["id"]))
                 items.append({"label": f"Skráning: {reg['event_name']} – {reg['queue_name']}",
                               "code": code, "link": external_url("access", code=code)})
+            for queue in db.execute(
+                """SELECT q.*, e.name AS event_name FROM queues q JOIN events e ON e.id = q.event_id
+                   WHERE q.runner_email = ? AND e.status != 'cancelled' AND q.ends_at > ?
+                   ORDER BY q.starts_at""",
+                (email, now),
+            ).fetchall():
+                code = new_code()
+                db.execute("UPDATE queues SET runner_code_hash = ? WHERE id = ?", (hash_code(code), queue["id"]))
+                items.append({"label": f"Stjórnandi: {queue['event_name']} – {queue['name']}",
+                              "code": code, "link": external_url("access", code=code)})
         if items:
             mail.send(email, "Kóðarnir þínir", "lost_codes.txt", items=items)
         return redirect(url_for("sent", to="lost"))
@@ -857,6 +922,54 @@ def create_app(overrides: dict | None = None) -> Flask:
             cancel_registration(reg, event, queue)
             flash("Þú hefur verið afskráð/ur.")
         return redirect(url_for("status", reg_id=reg_id))
+
+    # ===========================================================================
+    # GAME RUNNER
+    # ===========================================================================
+
+    @app.route("/game/<int:queue_id>", methods=["GET", "POST"])
+    def runner(queue_id):
+        db = get_db()
+        queue = db.execute("SELECT * FROM queues WHERE id = ?", (queue_id,)).fetchone()
+        if queue is None or queue["runner_code_hash"] is None or not has_access("games", runner_grant_key(queue)):
+            abort(403)
+        event = db.execute("SELECT * FROM events WHERE id = ?", (queue["event_id"],)).fetchone()
+        can_edit = event["status"] != "cancelled"
+
+        errors: dict[str, str] = {}
+        values = queue_form_values(queue)
+        if request.method == "POST" and can_edit:
+            # Runners edit name, description, image and capacity; time and registration
+            # stay with the organizer.
+            details = parse_game_details(request.form, errors)
+            new_image = None
+            if not errors:
+                try:
+                    new_image = save_image(request.files.get("image"))
+                except ValueError as e:
+                    errors["image"] = str(e)
+            if not errors:
+                with db:
+                    db.execute(
+                        "UPDATE queues SET name = ?, description = ?, capacity = ?, image = ? WHERE id = ?",
+                        (details["name"], details["description"], details["capacity"],
+                         replace_image(queue["image"], new_image), queue_id),
+                    )
+                updated = db.execute("SELECT * FROM queues WHERE id = ?", (queue_id,)).fetchone()
+                changed = sync_queue_states(db, queue_id)
+                notify_state_changes(changed, event, updated)
+                flash("Breytingar vistaðar." + (f" {len(changed)} þátttakendum var tilkynnt um breytta stöðu."
+                                                if changed else ""))
+                return redirect(url_for("runner", queue_id=queue_id))
+            values = {**values, **request.form}
+
+        (pending,) = db.execute(
+            "SELECT COUNT(*) FROM registrations WHERE queue_id = ? AND verified_at IS NULL AND cancelled_at IS NULL",
+            (queue_id,),
+        ).fetchone()
+        return render_template("game.html", event=event, queue=queue, values=values, errors=errors,
+                               can_edit=can_edit, standing=queue_standing(db, queue), pending=pending,
+                               public_url=external_url("event_page", slug=event["slug"])), (400 if errors else 200)
 
     # ===========================================================================
     # ORGANIZER
@@ -972,10 +1085,7 @@ def create_app(overrides: dict | None = None) -> Flask:
                                            "listed": request.form.get("listed", "")},
                                    errors=errors), 400
 
-        image = event["image"]
-        if new_image or request.form.get("remove_image"):
-            delete_image(image)
-            image = new_image
+        image = replace_image(event["image"], new_image)
         db = get_db()
         with db:
             db.execute(
@@ -1010,6 +1120,12 @@ def create_app(overrides: dict | None = None) -> Flask:
         ).fetchall():
             mail.send(reg["email"], f"Viðburði aflýst: {event['name']}", "event_cancelled.txt",
                       reg=reg, event=event, message=message)
+        for queue in db.execute(
+            "SELECT * FROM queues WHERE event_id = ? AND runner_email IS NOT NULL", (event["id"],)
+        ).fetchall():
+            mail.send(queue["runner_email"], f"Viðburði aflýst: {event['name']}", "event_cancelled.txt",
+                      reg={"name": queue["runner_name"] or "", "queue_name": queue["name"]},
+                      event=event, message=message, runner=True)
         flash("Viðburðinum hefur verið aflýst og þátttakendum sendur tölvupóstur.")
         return redirect(url_for("admin", slug=slug))
 
@@ -1052,28 +1168,31 @@ def create_app(overrides: dict | None = None) -> Flask:
 
         if queue is None:
             with db:
-                db.execute(
+                queue_id = db.execute(
                     """INSERT INTO queues (event_id, name, description, image, capacity, starts_at,
-                           ends_at, sort_order, is_open)
+                           ends_at, sort_order, is_open, runner_name, runner_email)
                        VALUES (:event_id, :name, :description, :image, :capacity, :starts_at,
-                           :ends_at, :sort_order, :is_open)""",
+                           :ends_at, :sort_order, :is_open, :runner_name, :runner_email)""",
                     {**values, "event_id": event["id"], "image": new_image},
-                )
+                ).lastrowid
             flash(f"Spilið „{values['name']}“ var stofnað.")
+            if values["runner_email"]:
+                flash_runner_invite(event, load_admin_queue(event, queue_id))
             return redirect(url_for("admin", slug=slug))
 
-        image = queue["image"]
-        if new_image or request.form.get("remove_image"):
-            delete_image(image)
-            image = new_image
+        image = replace_image(queue["image"], new_image)
         with db:
             db.execute(
                 """UPDATE queues SET name = :name, description = :description, image = :image,
                        capacity = :capacity, starts_at = :starts_at, ends_at = :ends_at,
-                       sort_order = :sort_order, is_open = :is_open
+                       sort_order = :sort_order, is_open = :is_open,
+                       runner_name = :runner_name, runner_email = :runner_email
                    WHERE id = :id""",
                 {**values, "image": image, "id": queue["id"]},
             )
+            if values["runner_email"] is None:
+                # No runner any more: the old runner's code and links stop working
+                db.execute("UPDATE queues SET runner_code_hash = NULL WHERE id = ?", (queue["id"],))
             if values["starts_at"] != queue["starts_at"]:
                 db.execute("UPDATE registrations SET reminder_sent_at = NULL WHERE queue_id = ?",
                            (queue["id"],))
@@ -1082,6 +1201,8 @@ def create_app(overrides: dict | None = None) -> Flask:
         notify_state_changes(changed, event, updated)
         flash("Breytingar vistaðar." + (f" {len(changed)} þátttakendum var tilkynnt um breytta stöðu."
                                         if changed else ""))
+        if values["runner_email"] and values["runner_email"] != queue["runner_email"]:
+            flash_runner_invite(event, updated)
         if (values["starts_at"], values["ends_at"]) != (queue["starts_at"], queue["ends_at"]):
             # Moving a game can make existing registrations overlap; tell the organizer.
             clashes = [
@@ -1095,6 +1216,20 @@ def create_app(overrides: dict | None = None) -> Flask:
             if clashes:
                 flash("Athugið: eftir tímabreytinguna eru þessi skráð í annað spil á sama tíma: "
                       + ", ".join(clashes))
+        return redirect(url_for("admin", slug=slug))
+
+    def flash_runner_invite(event, queue):
+        if invite_runner(event, queue):
+            flash(f"Boð með kóða var sent á {queue['runner_email']}.")
+        else:
+            flash(f"Ekki tókst að senda boð á {queue['runner_email']}. Reyndu „Senda boð aftur“.")
+
+    @app.route("/admin/<slug>/queues/<int:queue_id>/invite", methods=["POST"])
+    def reinvite_runner(slug, queue_id):
+        event = load_admin_event(slug)
+        queue = load_admin_queue(event, queue_id)
+        if queue["runner_email"]:
+            flash_runner_invite(event, queue)
         return redirect(url_for("admin", slug=slug))
 
     @app.route("/admin/<slug>/queues/<int:queue_id>/delete", methods=["POST"])

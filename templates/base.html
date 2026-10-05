@@ -78,8 +78,11 @@
     form:has(input[name=queue_id]:checked) .pick-hint { display: none; }
     form:not(:has(input[name=queue_id]:checked)) .register-panel { display: none; }
 
+    .show-phone { display: none; }
     /* Phones: compact game cards and a compact pinned registration form */
     @media (max-width: 600px) {
+      .hide-phone { display: none; }
+      .show-phone { display: block; }
       .grid { gap: .6rem; }
       label.queue-option { padding: .75rem; }
       label.queue-option input[type=radio] { top: .75rem; right: .75rem; }
@@ -165,6 +168,6 @@
     {% endfor %}
     {% block content %}{% endblock %}
   </main>
-  <footer class="site">Persónuupplýsingar (nafn og netfang) eru eingöngu notaðar til að halda utan um skráningu á viðburðinn.</footer>
+  <footer class="site">Persónuupplýsingar (nafn og netfang) eru eingöngu notaðar til að halda utan um skráningu á viðburðinn. Umsjónaraðili viðburðarins og stjórnandi spilsins sjá nöfn og netföng þeirra sem skrá sig.</footer>
 </body>
 </html>

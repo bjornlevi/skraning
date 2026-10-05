@@ -37,22 +37,49 @@ def close_db(_exc=None) -> None:
         con.close()
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+# Statements that upgrade an existing database from version N to N + 1.
+# schema.sql always describes the latest version (used for new databases).
+MIGRATIONS: dict[int, list[str]] = {
+    1: [  # game runners
+        "ALTER TABLE queues ADD COLUMN runner_name TEXT",
+        "ALTER TABLE queues ADD COLUMN runner_email TEXT",
+        "ALTER TABLE queues ADD COLUMN runner_code_hash TEXT",
+        "ALTER TABLE queues ADD COLUMN runner_reminder_sent_at TEXT",
+        "CREATE UNIQUE INDEX IF NOT EXISTS queues_runner_code ON queues(runner_code_hash)",
+    ],
+}
 
 
 def init_db(path: str) -> None:
+    """Create a new database, or migrate an older one to SCHEMA_VERSION."""
     con = connect(path)
-    (version,) = con.execute("PRAGMA user_version").fetchone()
-    (tables,) = con.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'").fetchone()
-    if tables == 0:
-        with con:
+    try:
+        # Take the write lock first: the web workers and the timer may start together.
+        con.execute("BEGIN IMMEDIATE")
+        (version,) = con.execute("PRAGMA user_version").fetchone()
+        (tables,) = con.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'").fetchone()
+        if tables == 0:
+            con.commit()
             con.executescript(SCHEMA.read_text())
-    elif version != SCHEMA_VERSION:
+        elif version < SCHEMA_VERSION:
+            for v in range(version, SCHEMA_VERSION):
+                for statement in MIGRATIONS[v]:
+                    con.execute(statement)
+            con.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            con.commit()
+        elif version > SCHEMA_VERSION:
+            raise RuntimeError(
+                f"{path} has schema version {version}, newer than this code ({SCHEMA_VERSION})."
+            )
+        else:
+            con.commit()
+    except BaseException:
+        con.rollback()
+        raise
+    finally:
         con.close()
-        raise RuntimeError(
-            f"{path} has schema version {version}, expected {SCHEMA_VERSION}. Migrate or remove it."
-        )
-    con.close()
 
 
 # ---------------------------------------------------------------------------

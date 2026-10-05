@@ -69,6 +69,27 @@
       {{ err(errors, 'image') }}
     </div>
 
+    <fieldset class="field" style="border:0;padding:0;margin:0 0 1rem">
+      <label class="lbl">Stjórnandi spilsins</label>
+      <div class="row">
+        <div class="field" style="margin-bottom:0">
+          <label class="small" for="runner_name">Nafn</label>
+          <input type="text" id="runner_name" name="runner_name" value="{{ values.get('runner_name', '') }}" maxlength="100">
+          {{ err(errors, 'runner_name') }}
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="small" for="runner_email">Netfang</label>
+          <input type="email" id="runner_email" name="runner_email" value="{{ values.get('runner_email', '') }}">
+          {{ err(errors, 'runner_email') }}
+        </div>
+      </div>
+      <div class="hint">
+        Valfrjálst. Nafnið birtist á skráningarsíðunni. Stjórnandinn fær tölvupóst með kóða og getur
+        breytt heiti, lýsingu, mynd og fjölda plássa, og séð skráða spilara. Ef netfanginu er breytt
+        fær nýi stjórnandinn kóða og sá fyrri missir aðganginn.
+      </div>
+    </fieldset>
+
     <div class="row">
       <div class="field">
         <label class="lbl" for="sort_order">Birtingarröð</label>

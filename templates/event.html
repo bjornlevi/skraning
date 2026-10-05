@@ -66,6 +66,7 @@
               {% if q.image %}<img class="thumb" src="{{ url_for('upload', name=q.image) }}" alt="">{% endif %}
               <div>
                 <h3>{{ q.name }}</h3>
+                {% if q.runner_name %}<div class="small muted">Stjórnandi: {{ q.runner_name }}</div>{% endif %}
                 <div style="margin:.4rem 0">
                   {% if item.registered %}<span class="badge ok">Þú ert skráð/ur</span>
                   {% elif item.closed %}<span class="badge">{{ item.closed }}</span>

@@ -1,0 +1,16 @@
+Hæ{% if queue.runner_name %} {{ queue.runner_name }}{% endif %},
+
+{{ event.organizer_name }} hefur skráð þig sem stjórnanda spilsins
+„{{ queue.name }}“ á viðburðinum „{{ event.name }}“.
+
+Hvenær: {{ queue.starts_at|dtrange(queue.ends_at) }}
+{% if event.location %}Hvar:   {{ event.location }}
+{% endif %}
+Með hlekknum hér fyrir neðan getur þú breytt heiti spilsins, lýsingu,
+mynd og fjölda plássa, og séð hverjir hafa skráð sig:
+{{ link }}
+
+Kóðinn þinn er:  {{ code }}
+
+Sólarhring fyrir viðburðinn færð þú lista yfir spilarana þína.
+Tíma spilsins og skráningu stýrir umsjónaraðili viðburðarins.

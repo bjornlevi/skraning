@@ -41,6 +41,14 @@ http://localhost:5003/skraning/
   game closes when it starts. `max_per_person` (optional) caps games per person.
 - **Reminders**: one email per participant per event, 24h before the event
   starts, listing all their games.
+- **Game runners**: a game can have a runner (name shown publicly, email
+  private). The runner gets their own code (`/game/<id>`) to edit the game's
+  name, description, image and capacity, and see its players; time and
+  registration stay with the organizer. Changing or removing the runner
+  replaces the code, which ends the old runner's access. Runners get one
+  reminder per event with their player lists.
+- **Database migrations**: `schema.sql` is the latest schema for new databases;
+  `MIGRATIONS` in `db.py` upgrades existing ones automatically at startup.
 - **Unverified** registrations hold no spot and are deleted after 24 hours;
   unverified events after 48 hours (`tasks.py`).
 

@@ -19,6 +19,7 @@
     {% if event.status == 'cancelled' %}<div class="error-box">Viðburðinum hefur verið aflýst.</div>{% endif %}
 
     <h2>{{ queue.name }}</h2>
+    {% if queue.runner_name %}<div class="muted" style="margin:-.5rem 0 .5rem">Stjórnandi: {{ queue.runner_name }}</div>{% endif %}
     <div class="meta" style="margin-bottom:.5rem">
       <span>📅 {{ queue.starts_at|dtrange(queue.ends_at) }}</span>
       {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}

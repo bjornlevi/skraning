@@ -71,10 +71,10 @@ class FlowTest(unittest.TestCase):
             return dict(get_db().execute("SELECT * FROM events").fetchone())
 
     def add_queue(self, event, name="Kall Cthulhu", capacity="1", start="13:00", end="17:00",
-                  expect=302):
+                  expect=302, **extra):
         resp = self.post(self.organizer, f"/admin/{event['slug']}/queues/new",
                          {"name": name, "capacity": capacity, "is_open": "1", "sort_order": "1",
-                          "date": self.day, "start_time": start, "end_time": end})
+                          "date": self.day, "start_time": start, "end_time": end, **extra})
         self.assertEqual(resp.status_code, expect, resp.get_data(as_text=True)[-3000:])
         if expect != 302:
             return resp
@@ -313,6 +313,146 @@ class FlowTest(unittest.TestCase):
             value = "2026-10-06 12:00:00"  # a Tuesday, 12:00 UTC = 12:00 in Reykjavík
             self.assertEqual(fmt_dt(value), "þriðjudagur 6. október 2026 kl. 12:00")
             self.assertEqual(fmt_dt(value, accusative=True), "þriðjudaginn 6. október 2026 kl. 12:00")
+
+    # -- game runners ----------------------------------------------------------
+
+    def queue_row(self, queue_id):
+        with self.app.app_context():
+            return dict(get_db().execute("SELECT * FROM queues WHERE id = ?", (queue_id,)).fetchone())
+
+    def edit_queue_as_organizer(self, event, queue, **changes):
+        data = {"name": queue["name"], "capacity": str(queue["capacity"] or ""), "is_open": "1",
+                "date": self.day, "start_time": "13:00", "end_time": "17:00",
+                "runner_name": queue["runner_name"] or "", "runner_email": queue["runner_email"] or "",
+                **changes}
+        return self.post(self.organizer, f"/admin/{event['slug']}/queues/{queue['id']}/edit", data)
+
+    def runner_client(self, email):
+        client = self.app.test_client()
+        code = self.code_from(self.last_mail(email))
+        resp = client.get(self.url(f"/c/{code}"))
+        self.assertEqual(resp.status_code, 302)
+        return client, code
+
+    def test_runner_invited_and_edits_allowed_fields(self):
+        event = self.create_event()
+        queue = self.add_queue(event, runner_name="Gunna", runner_email="gm@example.org")
+        invite = self.last_mail("gm@example.org")
+        self.assertIn("Þú stjórnar", invite["Subject"])
+        self.register(event, queue, "p1@example.org")
+
+        gm, _ = self.runner_client("gm@example.org")
+        html = gm.get(self.url(f"/game/{queue['id']}")).get_data(as_text=True)
+        self.assertIn("p1@example.org", html)  # sees players
+
+        resp = self.post(gm, f"/game/{queue['id']}", {
+            "name": "Nýtt nafn", "description": "Ný lýsing", "capacity": "4",
+            # Not editable by runners; must be ignored
+            "date": self.day, "start_time": "10:00", "end_time": "11:00", "is_open": "",
+            "runner_email": "hijack@example.org"})
+        self.assertEqual(resp.status_code, 302)
+        row = self.queue_row(queue["id"])
+        self.assertEqual((row["name"], row["description"], row["capacity"]), ("Nýtt nafn", "Ný lýsing", 4))
+        self.assertEqual((row["starts_at"], row["ends_at"], row["is_open"], row["runner_email"]),
+                         (queue["starts_at"], queue["ends_at"], 1, "gm@example.org"))
+
+        # No access to the organizer's pages or other games
+        self.assertEqual(gm.get(self.url(f"/admin/{event['slug']}")).status_code, 403)
+        other = self.add_queue(event, name="Annað spil")
+        self.assertEqual(gm.get(self.url(f"/game/{other['id']}")).status_code, 403)
+
+    def test_runner_capacity_increase_promotes(self):
+        event = self.create_event()
+        queue = self.add_queue(event, capacity="1", runner_email="gm@example.org")
+        gm, _ = self.runner_client("gm@example.org")
+        self.register(event, queue, "a@example.org")
+        self.register(event, queue, "b@example.org")
+        self.post(gm, f"/game/{queue['id']}", {"name": queue["name"], "capacity": "2"})
+        self.assertIn("Þú fékkst pláss", self.last_mail("b@example.org")["Subject"])
+
+    def test_changing_runner_revokes_old_runner(self):
+        event = self.create_event()
+        queue = self.add_queue(event, runner_email="old@example.org")
+        old, old_code = self.runner_client("old@example.org")
+        self.edit_queue_as_organizer(event, self.queue_row(queue["id"]), runner_email="new@example.org")
+
+        self.assertEqual(old.get(self.url(f"/game/{queue['id']}")).status_code, 403)
+        self.assertEqual(self.app.test_client().get(self.url(f"/c/{old_code}")).status_code, 404)
+        new, _ = self.runner_client("new@example.org")
+        self.assertEqual(new.get(self.url(f"/game/{queue['id']}")).status_code, 200)
+
+        # Removing the runner revokes access too
+        self.edit_queue_as_organizer(event, self.queue_row(queue["id"]), runner_email="", runner_name="")
+        self.assertEqual(new.get(self.url(f"/game/{queue['id']}")).status_code, 403)
+
+    def test_runner_name_shown_publicly(self):
+        event = self.create_event()
+        self.add_queue(event, runner_name="Gunna Spilastjóri", runner_email="gm@example.org")
+        html = self.app.test_client().get(self.url(f"/e/{event['slug']}")).get_data(as_text=True)
+        self.assertIn("Stjórnandi: Gunna Spilastjóri", html)
+        self.assertNotIn("gm@example.org", html)
+
+    def test_lost_code_includes_runner(self):
+        event = self.create_event()
+        queue = self.add_queue(event, runner_email="gm@example.org")
+        self.post(self.app.test_client(), "/lost", {"email": "gm@example.org"})
+        client, _ = self.runner_client("gm@example.org")
+        self.assertEqual(client.get(self.url(f"/game/{queue['id']}")).status_code, 200)
+
+    def test_runner_reminder(self):
+        import tasks
+
+        event = self.create_event()
+        q1 = self.add_queue(event, name="Fyrra", capacity="1", start="10:00", end="14:00",
+                            runner_name="Gunna", runner_email="gm@example.org")
+        q2 = self.add_queue(event, name="Seinna", capacity="5", start="15:00", end="19:00",
+                            runner_name="Gunna", runner_email="gm@example.org")
+        self.register(event, q1, "a@example.org")
+        self.register(event, q1, "b@example.org")  # waitlisted
+        with self.app.app_context():
+            db = get_db()
+            with db:
+                db.execute("UPDATE events SET starts_at = ?", (to_db(utcnow() + timedelta(hours=20)),))
+            mail.outbox.clear()
+            self.assertEqual(tasks.send_runner_reminders(), 1)  # one email for both games
+            self.assertEqual(tasks.send_runner_reminders(), 0)
+        body = self.last_mail("gm@example.org").get_content()
+        for text in ("Fyrra", "Seinna", "a@example.org", "Á biðlista", "b@example.org", "Enginn skráður"):
+            self.assertIn(text, body)
+
+    def test_cancelling_event_notifies_runner(self):
+        event = self.create_event()
+        self.add_queue(event, runner_email="gm@example.org")
+        self.post(self.organizer, f"/admin/{event['slug']}/cancel", {"confirm": "1"})
+        body = self.last_mail("gm@example.org").get_content()
+        self.assertIn("sem þú áttir að stjórna", body)
+
+    def test_migration_from_version_1(self):
+        import sqlite3
+        from db import SCHEMA, init_db
+
+        # Build a version-1 database: today's schema without the runner columns
+        v1 = SCHEMA.read_text().replace("PRAGMA user_version = 2;", "PRAGMA user_version = 1;")
+        v1 = re.sub(r",\s*--[^\n]*\n(\s*runner_\w+\s+TEXT,?\n)+", "\n", v1)
+        v1 = re.sub(r"CREATE UNIQUE INDEX IF NOT EXISTS queues_runner_code[^;]*;", "", v1)
+        self.assertNotIn("runner_", v1)
+        path = f"{self.tmp.name}/v1.db"
+        con = sqlite3.connect(path)
+        con.executescript(v1)
+        con.execute("""INSERT INTO events (slug, name, starts_at, ends_at, organizer_name, organizer_email,
+                       admin_code_hash, created_at) VALUES ('s', 'E', 'a', 'b', 'O', 'o@x.is', 'h', 'c')""")
+        con.execute("INSERT INTO queues (event_id, name, starts_at, ends_at) VALUES (1, 'Gamalt spil', 'a', 'b')")
+        con.commit()
+        con.close()
+
+        init_db(path)
+        init_db(path)  # running again is harmless
+        con = sqlite3.connect(path)
+        self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], 2)
+        cols = {r[1] for r in con.execute("PRAGMA table_info(queues)")}
+        self.assertTrue({"runner_name", "runner_email", "runner_code_hash", "runner_reminder_sent_at"} <= cols)
+        self.assertEqual(con.execute("SELECT name FROM queues").fetchone()[0], "Gamalt spil")
+        con.close()
 
     def test_cleanup_removes_unverified(self):
         import tasks

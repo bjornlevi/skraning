@@ -1,4 +1,4 @@
-Hæ {{ reg.name }},
+Hæ{% if reg.name %} {{ reg.name }}{% endif %},
 
 Því miður hefur viðburðinum „{{ event.name }}“, sem átti að hefjast
 {{ event.starts_at|dt_acc }}, verið aflýst.
@@ -7,4 +7,4 @@ Skilaboð frá {{ event.organizer_name }}:
 
 {{ message }}
 {% endif %}
-Skráning þín í „{{ reg.queue_name }}“ fellur því niður.
+{% if runner %}Spilið „{{ reg.queue_name }}“ sem þú áttir að stjórna fellur því niður.{% else %}Skráning þín í „{{ reg.queue_name }}“ fellur því niður.{% endif %}

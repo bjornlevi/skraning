@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_macros.html" import err, state_badge %}
+{% block title %}{{ queue.name }} – {{ site_name }}{% endblock %}
+{% block main_class %}narrow{% endblock %}
+{% block content %}
+  <div class="muted small">Stjórnandi spils · <a href="{{ url_for('event_page', slug=event.slug) }}">{{ event.name }}</a></div>
+  <h1>{{ queue.name }}</h1>
+  <div class="meta">
+    <span>🕒 {{ queue.starts_at|dtrange(queue.ends_at) }}</span>
+    {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}
+  </div>
+  {% if not can_edit %}<div class="error-box">Viðburðinum hefur verið aflýst.</div>{% endif %}
+
+  {% set confirmed = standing|selectattr('state', 'equalto', 'confirmed')|list %}
+  {% set waitlisted = standing|selectattr('state', 'equalto', 'waitlisted')|list %}
+  <div class="panel">
+    <h2 style="margin-top:0">Spilarar</h2>
+    <p class="small muted">
+      {{ confirmed|length }}{% if queue.capacity is not none %} af {{ queue.capacity }}{% endif %} með pláss
+      · {{ waitlisted|length }} á biðlista{% if pending %} · {{ pending }} óstaðfest{% endif %}
+    </p>
+    {% if standing %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Nafn</th><th class="hide-phone">Netfang</th><th>Staða</th></tr></thead>
+          <tbody>
+            {% for r in standing %}
+              <tr class="{{ 'waitlist' if r.state == 'waitlisted' }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ r.name }}<div class="show-phone small"><a href="mailto:{{ r.email }}">{{ r.email }}</a></div></td>
+                <td class="hide-phone"><a href="mailto:{{ r.email }}">{{ r.email }}</a></td>
+                <td>{{ state_badge(r.state, r.position) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if confirmed %}
+        <p class="small" style="margin-top:.75rem">Netföng spilara með pláss, til að afrita í tölvupóst:</p>
+        <input type="text" readonly value="{{ confirmed|map(attribute='email')|join(', ') }}" onclick="this.select()">
+      {% endif %}
+    {% else %}
+      <p class="muted">Enginn hefur skráð sig enn.</p>
+    {% endif %}
+    <p class="small muted" style="margin-top:.75rem">
+      Hlekkur á skráningu: <a href="{{ url_for('event_page', slug=event.slug) }}">{{ public_url }}</a>
+    </p>
+  </div>
+
+  {% if can_edit %}
+  <h2>Upplýsingar um spilið</h2>
+  {% if errors %}<div class="error-box">Lagfærðu villurnar hér að neðan.</div>{% endif %}
+  <form method="post" enctype="multipart/form-data" class="panel">
+    {{ csrf_field() }}
+    <div class="field">
+      <label class="lbl" for="name">Heiti</label>
+      <input type="text" id="name" name="name" value="{{ values.get('name', '') }}" required maxlength="150">
+      {{ err(errors, 'name') }}
+    </div>
+    <div class="field">
+      <label class="lbl" for="capacity">Fjöldi plássa</label>
+      <input type="number" id="capacity" name="capacity" min="0" value="{{ values.get('capacity', '') }}" style="max-width:8rem">
+      <div class="hint">Eftir þennan fjölda fara skráningar á biðlista. Autt = ótakmarkað. Ef plássum fjölgar færist fólk af biðlista sjálfkrafa upp og fær tölvupóst.</div>
+      {{ err(errors, 'capacity') }}
+    </div>
+    <div class="field">
+      <label class="lbl" for="description">Lýsing</label>
+      <textarea id="description" name="description" maxlength="10000">{{ values.get('description', '') }}</textarea>
+      {{ err(errors, 'description') }}
+    </div>
+    <div class="field">
+      <label class="lbl" for="image">Mynd</label>
+      {% if queue.image %}
+        <img class="thumb" src="{{ url_for('upload', name=queue.image) }}" alt="" style="max-width:240px">
+        <label class="small"><input type="checkbox" name="remove_image" value="1"> Fjarlægja mynd</label>
+      {% endif %}
+      <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp,image/gif">
+      {{ err(errors, 'image') }}
+    </div>
+    <p class="hint">Tíma spilsins og skráningu stýrir umsjónaraðili viðburðarins ({{ event.organizer_name }}).</p>
+    <button class="btn" type="submit">Vista</button>
+  </form>
+  {% endif %}
+{% endblock %}

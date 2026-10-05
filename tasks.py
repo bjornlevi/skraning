@@ -1,4 +1,5 @@
-"""Scheduled jobs: reminders 24h before an event starts, and cleanup of unverified data.
+"""Scheduled jobs: reminders 24h before an event starts (to participants and game
+runners), and cleanup of unverified data.
 
 Run every 10 minutes in production by deploy/skraning-tasks.timer.
 """
@@ -7,8 +8,8 @@ import logging
 from datetime import timedelta
 
 import mail
-from app import create_app, delete_image, registration_link
-from db import from_db, get_db, now_db, registration_state, to_db, utcnow
+from app import create_app, delete_image, registration_link, runner_link
+from db import from_db, get_db, now_db, queue_standing, registration_state, to_db, utcnow
 
 log = logging.getLogger("skraning.tasks")
 
@@ -52,6 +53,42 @@ def send_reminders() -> int:
     return sent
 
 
+def send_runner_reminders() -> int:
+    """One email per game runner per event, 24h before the event starts, with their players."""
+    db = get_db()
+    now = utcnow()
+    rows = db.execute(
+        """SELECT q.* FROM queues q JOIN events e ON e.id = q.event_id
+           WHERE e.status = 'published' AND q.runner_email IS NOT NULL
+             AND q.runner_code_hash IS NOT NULL AND q.runner_reminder_sent_at IS NULL
+             AND e.starts_at > ? AND e.starts_at <= ?
+           ORDER BY q.event_id, q.runner_email, q.starts_at""",
+        (to_db(now), to_db(now + timedelta(hours=24))),
+    ).fetchall()
+
+    groups: dict[tuple[int, str], list] = {}
+    for queue in rows:
+        groups.setdefault((queue["event_id"], queue["runner_email"]), []).append(queue)
+
+    sent = 0
+    for (event_id, email), queues in groups.items():
+        event = db.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+        games = []
+        for q in queues:
+            standing = queue_standing(db, q)
+            games.append({"queue": q, "link": runner_link(q),
+                          "confirmed": [r for r in standing if r["state"] == "confirmed"],
+                          "waitlisted": [r for r in standing if r["state"] == "waitlisted"]})
+        ok = mail.send(email, f"Áminning: {event['name']} – spilararnir þínir", "runner_reminder.txt",
+                       name=queues[0]["runner_name"] or "", event=event, games=games)
+        sent += ok
+        if ok:
+            with db:
+                db.executemany("UPDATE queues SET runner_reminder_sent_at = ? WHERE id = ?",
+                               [(now_db(), q["id"]) for q in queues])
+    return sent
+
+
 def cleanup() -> None:
     db = get_db()
     now = utcnow()
@@ -75,7 +112,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     app = create_app()
     with app.app_context():
-        sent = send_reminders()
+        sent = send_reminders() + send_runner_reminders()
         cleanup()
     if sent:
         log.info("Sent %d reminder(s)", sent)
