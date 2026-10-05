@@ -68,7 +68,7 @@ and port to match how opin_gogn is set up on the server:
 
 1. Copy the project to `/srv/skraning`, run `make install`, create `data/`
    owned by `www-data`.
-2. `deploy/skraning.env.example` → `/etc/skraning.env` (chmod 600), fill in.
+2. `deploy/skraning.env.example` → `/etc/default/skraning` (chmod 600), fill in.
 3. `deploy/skraning.service` → systemd; `deploy/nginx.conf` → the existing
    server block.
 4. `deploy/crontab` → `crontab -u www-data -e` (reminders + cleanup every 10 min).
