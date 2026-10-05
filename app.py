@@ -81,7 +81,7 @@ def load_config() -> dict:
         "CREATE_PASSWORD": os.getenv("CREATE_PASSWORD", ""),
         "SITE_NAME": os.getenv("SITE_NAME", "Skráning"),
         "MAIL_BACKEND": os.getenv("MAIL_BACKEND", "console"),
-        "MAIL_FROM": os.getenv("MAIL_FROM", "skraning@bjornlevi.is"),
+        "MAIL_FROM": os.getenv("MAIL_FROM", "no-reply@bjornlevi.is"),
         "MAIL_FROM_NAME": os.getenv("MAIL_FROM_NAME", "Skráning"),
         "SMTP_HOST": os.getenv("SMTP_HOST", "localhost"),
         "SMTP_PORT": int(os.getenv("SMTP_PORT", "25")),

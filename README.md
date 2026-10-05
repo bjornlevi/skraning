@@ -57,7 +57,7 @@ http://localhost:5003/skraning/
 | `CREATE_PASSWORD` | *(empty)* | Shared password needed to create an event. Required when `MAIL_BACKEND=smtp`; optional in development |
 | `SITE_NAME` | `Skráning` | |
 | `MAIL_BACKEND` | `console` | `smtp`, `console` or `memory` |
-| `MAIL_FROM` / `MAIL_FROM_NAME` | `skraning@bjornlevi.is` / `Skráning` | |
+| `MAIL_FROM` / `MAIL_FROM_NAME` | `no-reply@bjornlevi.is` / `Skráning` | |
 | `SMTP_HOST` `SMTP_PORT` `SMTP_STARTTLS` `SMTP_USER` `SMTP_PASSWORD` | `localhost` `25` | `SMTP_STARTTLS=1` to enable |
 
 ## Deployment (server.com/skraning)
@@ -75,7 +75,7 @@ and port to match how opin_gogn is set up on the server:
 
 Back up `data/` (the SQLite database and uploaded images).
 
-### Email for skraning@bjornlevi.is
+### Email for no-reply@bjornlevi.is
 
 Emails must not end up in spam, so the DNS for bjornlevi.is needs:
 
