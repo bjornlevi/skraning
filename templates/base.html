@@ -72,9 +72,31 @@
                       border: 2px solid var(--accent); box-shadow: 0 -4px 24px rgba(31,27,22,.18); }
     .register-title { margin-bottom: .75rem; }
     .register-panel .field { margin-bottom: .75rem; }
+    .register-panel input::placeholder { color: transparent; }  /* labels show above on wide screens */
     /* Browsers without :has() simply show both, as before */
     form:has(input[name=queue_id]:checked) .pick-hint { display: none; }
     form:not(:has(input[name=queue_id]:checked)) .register-panel { display: none; }
+
+    /* Phones: compact game cards and a compact pinned registration form */
+    @media (max-width: 600px) {
+      .grid { gap: .6rem; }
+      label.queue-option { padding: .75rem; }
+      label.queue-option input[type=radio] { top: .75rem; right: .75rem; }
+      .q-head { display: flex; gap: .75rem; align-items: flex-start; }
+      .q-head .thumb { flex: 0 0 88px; width: 88px; aspect-ratio: 1; max-height: none; margin: 0; }
+      .queue-option h3 { font-size: 1.05rem; }
+      .q-head { margin-bottom: .5rem; }
+      .register-panel input::placeholder { color: var(--muted); }
+
+      .register-panel { padding: .75rem; bottom: .5rem; }
+      .register-title { font-size: 1rem; margin-bottom: .5rem; }
+      .register-panel .row { gap: .5rem; }
+      .register-panel .field { margin-bottom: .5rem; }
+      .register-panel .hint { display: none; }
+      .register-panel .btn { width: 100%; }
+      /* Labels stay for screen readers; the placeholders show the field names */
+      .register-panel label.lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; display: flex; flex-direction: column; }
     a.card { color: inherit; text-decoration: none; }
     a.card:hover { border-color: var(--accent); }

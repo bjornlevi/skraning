@@ -60,13 +60,18 @@
                    data-label="{{ q.name }}" data-time="{{ q.starts_at|slot_label(q.ends_at, event) }}"
                    {% if disabled %}disabled{% endif %}
                    {% if form.get('queue_id') == q.id|string %}checked{% endif %}>
-            {% if q.image %}<img class="thumb" src="{{ url_for('upload', name=q.image) }}" alt="">{% endif %}
-            <h3>{{ q.name }}</h3>
-            <div style="margin:.4rem 0">
-              {% if item.registered %}<span class="badge ok">Þú ert skráð/ur</span>
-              {% elif item.closed %}<span class="badge">{{ item.closed }}</span>
-              {% elif q.capacity is not none and not c.free %}<span class="badge warn">{{ capacity_text(q, c) }}</span>
-              {% else %}<span class="badge ok">{{ capacity_text(q, c) }}</span>{% endif %}
+            {# Image above the title on wide screens, beside it on phones #}
+            <div class="q-head">
+              {% if q.image %}<img class="thumb" src="{{ url_for('upload', name=q.image) }}" alt="">{% endif %}
+              <div>
+                <h3>{{ q.name }}</h3>
+                <div style="margin:.4rem 0">
+                  {% if item.registered %}<span class="badge ok">Þú ert skráð/ur</span>
+                  {% elif item.closed %}<span class="badge">{{ item.closed }}</span>
+                  {% elif q.capacity is not none and not c.free %}<span class="badge warn">{{ capacity_text(q, c) }}</span>
+                  {% else %}<span class="badge ok">{{ capacity_text(q, c) }}</span>{% endif %}
+                </div>
+              </div>
             </div>
             {% if item.clash and not item.registered %}
               <div class="small muted">Skarast á við „{{ item.clash.queue_name }}“ sem þú ert skráð/ur í.</div>
@@ -91,12 +96,12 @@
       <div class="row">
         <div class="field">
           <label class="lbl" for="name">Nafn</label>
-          <input type="text" id="name" name="name" value="{{ form.get('name', '') }}" required maxlength="100" autocomplete="name">
+          <input type="text" id="name" name="name" value="{{ form.get('name', '') }}" required maxlength="100" autocomplete="name" placeholder="Nafn">
           {{ err(errors, 'name') }}
         </div>
         <div class="field">
           <label class="lbl" for="email">Netfang</label>
-          <input type="email" id="email" name="email" value="{{ form.get('email', '') }}" required autocomplete="email">
+          <input type="email" id="email" name="email" value="{{ form.get('email', '') }}" required autocomplete="email" placeholder="Netfang">
           {{ err(errors, 'email') }}
         </div>
       </div>
