@@ -100,6 +100,9 @@ def load_config() -> dict:
 # ---------------------------------------------------------------------------
 
 DAYS = ["mánudagur", "þriðjudagur", "miðvikudagur", "fimmtudagur", "föstudagur", "laugardagur", "sunnudagur"]
+# Accusative, for dates after a verb: "Skráning opnar þriðjudaginn 6. október"
+DAYS_ACC = ["mánudaginn", "þriðjudaginn", "miðvikudaginn", "fimmtudaginn", "föstudaginn", "laugardaginn",
+            "sunnudaginn"]
 MONTHS = ["janúar", "febrúar", "mars", "apríl", "maí", "júní",
           "júlí", "ágúst", "september", "október", "nóvember", "desember"]
 
@@ -123,11 +126,11 @@ def to_local(value: str | None) -> datetime | None:
     return dt.astimezone(local_tz()) if dt else None
 
 
-def fmt_dt(value: str | None, with_day: bool = True) -> str:
+def fmt_dt(value: str | None, with_day: bool = True, accusative: bool = False) -> str:
     d = to_local(value)
     if d is None:
         return ""
-    day = f"{DAYS[d.weekday()]} " if with_day else ""
+    day = f"{(DAYS_ACC if accusative else DAYS)[d.weekday()]} " if with_day else ""
     return f"{day}{d.day}. {MONTHS[d.month - 1]} {d.year} kl. {d:%H:%M}"
 
 
@@ -267,7 +270,7 @@ def registration_closed_reason(event) -> str | None:
     if now >= event["ends_at"]:
         return "Viðburðinum er lokið."
     if event["registration_opens_at"] and now < event["registration_opens_at"]:
-        return f"Skráning opnar {fmt_dt(event['registration_opens_at'])}."
+        return f"Skráning opnar {fmt_dt(event['registration_opens_at'], accusative=True)}."
     if event["registration_closes_at"] and now >= event["registration_closes_at"]:
         return "Skráningu er lokið."
     return None
@@ -528,7 +531,7 @@ def create_app(overrides: dict | None = None) -> Flask:
     init_db(app.config["DATABASE"])
     app.teardown_appcontext(close_db)
 
-    app.jinja_env.filters.update(dt=fmt_dt, dtrange=fmt_range, slot_label=fmt_slot, nl2br=nl2br)
+    app.jinja_env.filters.update(dt=fmt_dt, dt_acc=lambda v: fmt_dt(v, accusative=True), dtrange=fmt_range, slot_label=fmt_slot, nl2br=nl2br)
     app.jinja_env.globals.update(STATE_LABELS=STATE_LABELS)
 
     def csrf_token() -> str:

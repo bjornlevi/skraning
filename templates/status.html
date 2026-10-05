@@ -4,7 +4,7 @@
 {% block main_class %}narrow{% endblock %}
 {% block content %}
   <div class="panel">
-    <div class="muted small">Skráning {{ reg.name }}</div>
+    <div class="muted small">Skráning · {{ reg.name }}</div>
     <div class="status-big">
       {% if state == 'confirmed' %}✅ Þú átt pláss
       {% elif state == 'waitlisted' %}⏳ Biðlisti — númer {{ position }}

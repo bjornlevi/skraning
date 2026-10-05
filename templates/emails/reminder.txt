@@ -1,6 +1,6 @@
 Hæ {{ name }},
 
-Áminning: „{{ event.name }}“ hefst {{ event.starts_at|dt }}.
+Áminning: „{{ event.name }}“ hefst {{ event.starts_at|dt_acc }}.
 {% if event.location %}Hvar: {{ event.location }}
 {% endif %}
 Skráningarnar þínar:

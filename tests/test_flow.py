@@ -307,6 +307,13 @@ class FlowTest(unittest.TestCase):
             create_app({"MAIL_BACKEND": "smtp", "SECRET_KEY": "s", "CREATE_PASSWORD": "",
                         "DATABASE": f"{self.tmp.name}/p.db"})
 
+    def test_weekday_case(self):
+        from app import fmt_dt
+        with self.app.app_context():
+            value = "2026-10-06 12:00:00"  # a Tuesday, 12:00 UTC = 12:00 in Reykjavík
+            self.assertEqual(fmt_dt(value), "þriðjudagur 6. október 2026 kl. 12:00")
+            self.assertEqual(fmt_dt(value, accusative=True), "þriðjudaginn 6. október 2026 kl. 12:00")
+
     def test_cleanup_removes_unverified(self):
         import tasks
 

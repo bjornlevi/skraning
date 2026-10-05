@@ -1,7 +1,7 @@
 Hæ {{ reg.name }},
 
 Því miður hefur viðburðinum „{{ event.name }}“, sem átti að hefjast
-{{ event.starts_at|dt }}, verið aflýst.
+{{ event.starts_at|dt_acc }}, verið aflýst.
 {% if message %}
 Skilaboð frá {{ event.organizer_name }}:
 
