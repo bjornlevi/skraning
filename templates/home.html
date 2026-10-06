@@ -25,7 +25,7 @@
     </div>
     <div class="panel" style="flex:1 1 300px">
       <h2 style="margin-top:0">Halda viðburð?</h2>
-      <p class="muted small">Stofnaðu viðburð og bættu við spilum, hvert með sinn tíma og fjölda plássa. Enginn aðgangur nauðsynlegur.</p>
+      <p class="muted small">Stofnaðu viðburð og bættu við spilum, hvert með sinn tíma og fjölda plássa. Þú færð kóða í tölvupósti til að stjórna viðburðinum{% if config.CREATE_PASSWORD %}; lykilorð til að stofna viðburði fæst hjá umsjónarmanni síðunnar{% endif %}.</p>
       <a class="btn" href="{{ url_for('new_event') }}">Nýr viðburður</a>
     </div>
   </div>
