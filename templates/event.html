@@ -13,7 +13,7 @@
     {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}
     <span>Umsjón: {{ event.organizer_name }}</span>
   </div>
-  {% if event.description %}<div class="panel">{{ event.description|nl2br }}</div>{% endif %}
+  {% if event.description %}<div class="panel md">{{ event.description|md }}</div>{% endif %}
 
   {% if mine %}
     <div class="panel">
@@ -78,9 +78,14 @@
             {% if item.clash and not item.registered %}
               <div class="small muted">Skarast á við „{{ item.clash.queue_name }}“ sem þú ert skráð/ur í.</div>
             {% endif %}
-            {% if q.description %}<div class="small">{{ q.description|nl2br }}</div>{% endif %}
-            {% if not disabled and q.capacity is not none and not c.free %}
-              <div class="small muted" style="margin-top:auto;padding-top:.5rem">Skráning fer á biðlista.</div>
+            {% if q.description %}<div class="small md">{{ q.description|md }}</div>{% endif %}
+            {% if not disabled %}
+              <div class="pick-foot">
+                {% if q.capacity is not none and not c.free %}
+                  <div class="small muted" style="margin-bottom:.4rem">Skráning fer á biðlista.</div>
+                {% endif %}
+                <span class="pick-btn" aria-hidden="true"><span class="pick-off">Skrá mig</span><span class="pick-on">✓ Valið</span></span>
+              </div>
             {% endif %}
           </label>
         {% endfor %}

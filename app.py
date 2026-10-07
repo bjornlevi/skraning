@@ -33,6 +33,8 @@ from flask import (
     session,
     url_for,
 )
+import markdown as markdown_lib
+import nh3
 from markupsafe import Markup, escape
 from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -188,6 +190,17 @@ def local_input(value: str | None, fmt: str) -> str:
 
 def nl2br(text: str | None) -> Markup:
     return Markup("<br>\n").join(escape(text or "").split("\n"))
+
+
+MD_TAGS = {"p", "br", "strong", "em", "a", "ul", "ol", "li", "h1", "h2", "h3", "h4",
+           "blockquote", "code", "pre", "hr", "del"}
+
+
+def render_markdown(text: str | None) -> Markup:
+    """Markdown for descriptions; single newlines become line breaks, any HTML is stripped."""
+    html = markdown_lib.markdown(text or "", extensions=["nl2br", "sane_lists"])
+    return Markup(nh3.clean(html, tags=MD_TAGS, attributes={"a": {"href"}},
+                            url_schemes={"http", "https", "mailto"}, link_rel="noopener noreferrer nofollow"))
 
 
 def make_slug(name: str) -> str:
@@ -577,7 +590,7 @@ def create_app(overrides: dict | None = None) -> Flask:
     init_db(app.config["DATABASE"])
     app.teardown_appcontext(close_db)
 
-    app.jinja_env.filters.update(dt=fmt_dt, dt_acc=lambda v: fmt_dt(v, accusative=True), dtrange=fmt_range, slot_label=fmt_slot, nl2br=nl2br)
+    app.jinja_env.filters.update(dt=fmt_dt, dt_acc=lambda v: fmt_dt(v, accusative=True), dtrange=fmt_range, slot_label=fmt_slot, nl2br=nl2br, md=render_markdown)
     app.jinja_env.globals.update(STATE_LABELS=STATE_LABELS)
 
     def csrf_token() -> str:

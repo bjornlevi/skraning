@@ -51,6 +51,7 @@
     <div class="field">
       <label class="lbl" for="description">Lýsing</label>
       <textarea id="description" name="description" maxlength="10000">{{ values.get('description', '') }}</textarea>
+      <div class="hint">Markdown leyft: **feitletrað**, *skáletrað*, [hlekkur](https://…), listar með - eða 1.</div>
       {{ err(errors, 'description') }}
     </div>
 

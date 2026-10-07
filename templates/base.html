@@ -85,7 +85,6 @@
       .show-phone { display: block; }
       .grid { gap: .6rem; }
       label.queue-option { padding: .75rem; }
-      label.queue-option input[type=radio] { top: .75rem; right: .75rem; }
       .q-head { display: flex; gap: .75rem; align-items: flex-start; }
       .q-head .thumb { flex: 0 0 88px; width: 88px; aspect-ratio: 1; max-height: none; margin: 0; }
       .queue-option h3 { font-size: 1.05rem; }
@@ -105,11 +104,32 @@
     a.card { color: inherit; text-decoration: none; }
     a.card:hover { border-color: var(--accent); }
 
+    /* The whole card is the choice; the radio is hidden behind a button-like "Velja" bar */
     label.queue-option { cursor: pointer; position: relative; }
-    label.queue-option input[type=radio] { position: absolute; top: 1rem; right: 1rem; width: 1.2rem; height: 1.2rem; accent-color: var(--accent); }
+    label.queue-option input[type=radio] { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
     label.queue-option:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+    label.queue-option:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+    label.queue-option:not(.disabled):hover { border-color: var(--accent); }
     label.queue-option.disabled { opacity: .6; cursor: not-allowed; }
-    .queue-option h3 { padding-right: 2rem; }
+    .pick-foot { margin-top: auto; padding-top: .75rem; }
+    .pick-btn { display: block; text-align: center; font-weight: 600; padding: .5rem; border-radius: 6px;
+                border: 1px solid var(--accent); color: var(--accent); background: var(--panel); }
+    label.queue-option:hover .pick-btn { background: var(--accent-light); }
+    .pick-on { display: none; }
+    label.queue-option input:checked ~ .pick-foot .pick-btn { background: var(--accent); color: var(--accent-ink); }
+    label.queue-option input:checked ~ .pick-foot .pick-on { display: inline; }
+    label.queue-option input:checked ~ .pick-foot .pick-off { display: none; }
+
+    /* Rendered Markdown in descriptions: keep it compact, headings no bigger than the card title */
+    .md > :first-child { margin-top: 0; }
+    .md > :last-child { margin-bottom: 0; }
+    .md p, .md ul, .md ol, .md blockquote, .md pre { margin: 0 0 .6em; }
+    .md ul, .md ol { padding-left: 1.3em; }
+    .md h1, .md h2, .md h3, .md h4 { font-size: 1.05em; margin: .8em 0 .3em; }
+    .md blockquote { border-left: 3px solid var(--border); padding-left: .75em; color: var(--muted); }
+    .md code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; background: var(--bg); padding: 0 .2em; border-radius: 3px; }
+    .md pre { overflow-x: auto; }
+    .md hr { border: 0; border-top: 1px solid var(--border); }
 
     .badge { display: inline-block; font-size: .8rem; font-weight: 600; padding: .15rem .55rem; border-radius: 999px; background: var(--border); color: var(--ink); }
     .badge.ok { background: var(--ok-light); color: var(--ok); }

@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import mail  # noqa: E402
-from app import create_app  # noqa: E402
+from app import create_app, render_markdown  # noqa: E402
 from db import get_db, to_db, utcnow  # noqa: E402
 
 CODE_RE = re.compile(r"\b[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}\b")
@@ -466,6 +466,18 @@ class FlowTest(unittest.TestCase):
                 db.execute("UPDATE registrations SET created_at = ?", (to_db(utcnow() - timedelta(days=2)),))
             tasks.cleanup()
             self.assertEqual(db.execute("SELECT COUNT(*) FROM registrations").fetchone()[0], 0)
+
+
+class MarkdownTest(unittest.TestCase):
+    def test_renders_markdown_and_strips_html(self):
+        html = str(render_markdown("**Feitt** og [hlekkur](https://example.com)\nNý lína\n\n- a\n- b\n\n"
+                                   "<script>alert(1)</script> [x](javascript:alert(1))"))
+        self.assertIn("<strong>Feitt</strong>", html)
+        self.assertIn('href="https://example.com"', html)
+        self.assertIn("<br", html)
+        self.assertIn("<li>a</li>", html)
+        self.assertNotIn("<script", html)
+        self.assertNotIn("javascript:", html)
 
 
 class PrefixedFlowTest(FlowTest):
