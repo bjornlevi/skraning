@@ -30,7 +30,7 @@
     {% set q = item.queue %}
     {% set confirmed = item.standing|selectattr('state', 'equalto', 'confirmed')|list %}
     {% set waitlisted = item.standing|selectattr('state', 'equalto', 'waitlisted')|list %}
-    <div class="panel">
+    <div class="panel" id="q{{ q.id }}">
       <div class="actions" style="justify-content:space-between">
         <div>
           <h3>{{ q.name }} {% if not q.is_open %}<span class="badge">Lokað</span>{% endif %}</h3>
@@ -62,7 +62,7 @@
       {% if item.standing %}
         <div class="table-wrap" style="margin-top:.75rem">
           <table>
-            <thead><tr><th>#</th><th>Nafn</th><th>Netfang</th><th>Staða</th><th>Staðfest</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Nafn</th><th>Netfang</th><th>Staða</th><th>Greiðsla</th><th>Staðfest</th><th></th></tr></thead>
             <tbody>
               {% for r in item.standing %}
                 <tr class="{{ 'waitlist' if r.state == 'waitlisted' }}">
@@ -70,6 +70,16 @@
                   <td>{{ r.name }}</td>
                   <td><a href="mailto:{{ r.email }}">{{ r.email }}</a></td>
                   <td>{{ state_badge(r.state, r.position) }}</td>
+                  <td>
+                    <form method="post" action="{{ url_for('toggle_paid', slug=event.slug, reg_id=r.id) }}">
+                      {{ csrf_field() }}
+                      {% if r.paid_at %}
+                        <button class="btn small paid" type="submit" title="Smelltu til að taka merkinguna af (t.d. ef merkt fyrir mistök eða endurgreitt)">✓ Greitt</button>
+                      {% else %}
+                        <button class="btn secondary small" type="submit">Merkja greitt</button>
+                      {% endif %}
+                    </form>
+                  </td>
                   <td class="small muted">{{ r.verified_at|dt(false) }}</td>
                   <td>
                     <details>

@@ -427,15 +427,39 @@ class FlowTest(unittest.TestCase):
         body = self.last_mail("gm@example.org").get_content()
         self.assertIn("sem þú áttir að stjórna", body)
 
+    def test_payment_toggle(self):
+        event = self.create_event()
+        queue = self.add_queue(event, capacity="3")
+        player, _ = self.register(event, queue, "a@example.org")
+        with self.app.app_context():
+            reg_id = get_db().execute("SELECT id FROM registrations").fetchone()[0]
+        path = f"/admin/{event['slug']}/registrations/{reg_id}/paid"
+        # Only the organizer can mark payments
+        self.assertEqual(self.post(player, path).status_code, 403)
+
+        self.post(self.organizer, path)
+        self.assertIn("Greiðsla staðfest", player.get(self.url(f"/me/{reg_id}")).get_data(as_text=True))
+        csv_text = self.organizer.get(self.url(f"/admin/{event['slug']}/export.csv")).get_data(as_text=True)
+        self.assertIn(";Greitt;", csv_text)
+        self.assertIn(";já;", csv_text)
+
+        # Clicking again removes the mark (mistake or refund)
+        self.post(self.organizer, path)
+        self.assertNotIn("Greiðsla staðfest", player.get(self.url(f"/me/{reg_id}")).get_data(as_text=True))
+        with self.app.app_context():
+            self.assertIsNone(get_db().execute("SELECT paid_at FROM registrations").fetchone()[0])
+
     def test_migration_from_version_1(self):
         import sqlite3
         from db import SCHEMA, init_db
 
         # Build a version-1 database: today's schema without the runner columns
-        v1 = SCHEMA.read_text().replace("PRAGMA user_version = 2;", "PRAGMA user_version = 1;")
+        v1 = SCHEMA.read_text().replace("PRAGMA user_version = 3;", "PRAGMA user_version = 1;")
+        v1 = re.sub(r",\s*paid_at[^\n]*\n", "\n", v1)
         v1 = re.sub(r",\s*--[^\n]*\n(\s*runner_\w+\s+TEXT,?\n)+", "\n", v1)
         v1 = re.sub(r"CREATE UNIQUE INDEX IF NOT EXISTS queues_runner_code[^;]*;", "", v1)
         self.assertNotIn("runner_", v1)
+        self.assertNotIn("paid_at", v1)
         path = f"{self.tmp.name}/v1.db"
         con = sqlite3.connect(path)
         con.executescript(v1)
@@ -448,7 +472,8 @@ class FlowTest(unittest.TestCase):
         init_db(path)
         init_db(path)  # running again is harmless
         con = sqlite3.connect(path)
-        self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], 2)
+        self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], 3)
+        self.assertIn("paid_at", {r[1] for r in con.execute("PRAGMA table_info(registrations)")})
         cols = {r[1] for r in con.execute("PRAGMA table_info(queues)")}
         self.assertTrue({"runner_name", "runner_email", "runner_code_hash", "runner_reminder_sent_at"} <= cols)
         self.assertEqual(con.execute("SELECT name FROM queues").fetchone()[0], "Gamalt spil")

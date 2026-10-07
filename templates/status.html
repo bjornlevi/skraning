@@ -11,6 +11,7 @@
       {% elif state == 'pending' %}✉️ Óstaðfest
       {% else %}Afskráð{% endif %}
     </div>
+    {% if reg.paid_at and state in ('confirmed', 'waitlisted') %}<p><span class="badge ok">✓ Greiðsla staðfest</span></p>{% endif %}
     {% if state == 'waitlisted' %}
       <p>Ef pláss losnar færist þú sjálfkrafa upp og færð tölvupóst.</p>
     {% elif state == 'pending' %}

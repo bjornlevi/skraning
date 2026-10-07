@@ -1282,6 +1282,21 @@ def create_app(overrides: dict | None = None) -> Flask:
             flash(f"{reg['name']} var fjarlægð/ur úr „{queue['name']}“.")
         return redirect(url_for("admin", slug=slug))
 
+    @app.route("/admin/<slug>/registrations/<int:reg_id>/paid", methods=["POST"])
+    def toggle_paid(slug, reg_id):
+        event = load_admin_event(slug)
+        db = get_db()
+        reg = db.execute(
+            "SELECT * FROM registrations WHERE id = ? AND event_id = ?", (reg_id, event["id"])
+        ).fetchone()
+        if reg is None:
+            abort(404)
+        paid_at = None if reg["paid_at"] else now_db()
+        with db:
+            db.execute("UPDATE registrations SET paid_at = ? WHERE id = ?", (paid_at, reg_id))
+        flash(f"Greiðsla {reg['name']} merkt staðfest." if paid_at else f"Merking um greiðslu {reg['name']} fjarlægð.")
+        return redirect(url_for("admin", slug=slug) + f"#q{reg['queue_id']}")
+
     @app.route("/admin/<slug>/export.csv")
     def export_csv(slug):
         event = load_admin_event(slug)
@@ -1289,7 +1304,7 @@ def create_app(overrides: dict | None = None) -> Flask:
         out = io.StringIO()
         out.write("﻿")  # BOM so Excel detects UTF-8
         writer = csv.writer(out, delimiter=";")
-        writer.writerow(["Spil", "Tími", "Nafn", "Netfang", "Staða", "Sæti", "Skráð", "Staðfest", "Afskráð"])
+        writer.writerow(["Spil", "Tími", "Nafn", "Netfang", "Staða", "Sæti", "Greitt", "Skráð", "Staðfest", "Afskráð"])
         for q in db.execute(
             "SELECT * FROM queues WHERE event_id = ? ORDER BY starts_at, ends_at, sort_order, id",
             (event["id"],),
@@ -1302,7 +1317,7 @@ def create_app(overrides: dict | None = None) -> Flask:
                 writer.writerow([
                     q["name"], fmt_range(q["starts_at"], q["ends_at"]), reg["name"], reg["email"],
                     STATE_LABELS[st["state"]],
-                    st["position"] or "", fmt_dt(reg["created_at"], with_day=False),
+                    st["position"] or "", "já" if reg["paid_at"] else "", fmt_dt(reg["created_at"], with_day=False),
                     fmt_dt(reg["verified_at"], with_day=False), fmt_dt(reg["cancelled_at"], with_day=False),
                 ])
         return Response(

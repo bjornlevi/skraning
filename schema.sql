@@ -1,7 +1,7 @@
 -- All timestamps are stored as UTC text: "YYYY-MM-DD HH:MM:SS".
 -- This is the latest version. When changing it, bump user_version below and
 -- SCHEMA_VERSION in db.py, and add the upgrade statements to MIGRATIONS there.
-PRAGMA user_version = 2;
+PRAGMA user_version = 3;
 
 CREATE TABLE IF NOT EXISTS events (
     id                      INTEGER PRIMARY KEY,
@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS registrations (
     verified_at          TEXT,       -- NULL until the emailed link is used
     cancelled_at         TEXT,
     last_notified_state  TEXT,       -- 'confirmed' | 'waitlisted'
-    reminder_sent_at     TEXT
+    reminder_sent_at     TEXT,
+    paid_at              TEXT        -- set by the organizer: payment received
 );
 CREATE INDEX IF NOT EXISTS registrations_queue ON registrations(queue_id);
 CREATE INDEX IF NOT EXISTS registrations_event_email ON registrations(event_id, email);

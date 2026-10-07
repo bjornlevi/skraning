@@ -37,7 +37,7 @@ def close_db(_exc=None) -> None:
         con.close()
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Statements that upgrade an existing database from version N to N + 1.
 # schema.sql always describes the latest version (used for new databases).
@@ -48,6 +48,9 @@ MIGRATIONS: dict[int, list[str]] = {
         "ALTER TABLE queues ADD COLUMN runner_code_hash TEXT",
         "ALTER TABLE queues ADD COLUMN runner_reminder_sent_at TEXT",
         "CREATE UNIQUE INDEX IF NOT EXISTS queues_runner_code ON queues(runner_code_hash)",
+    ],
+    2: [  # payment marker
+        "ALTER TABLE registrations ADD COLUMN paid_at TEXT",
     ],
 }
 

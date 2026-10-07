@@ -22,7 +22,7 @@
     {% if standing %}
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Nafn</th><th class="hide-phone">Netfang</th><th>Staða</th></tr></thead>
+          <thead><tr><th>#</th><th>Nafn</th><th class="hide-phone">Netfang</th><th>Staða</th><th>Greitt</th></tr></thead>
           <tbody>
             {% for r in standing %}
               <tr class="{{ 'waitlist' if r.state == 'waitlisted' }}">
@@ -30,6 +30,7 @@
                 <td>{{ r.name }}<div class="show-phone small"><a href="mailto:{{ r.email }}">{{ r.email }}</a></div></td>
                 <td class="hide-phone"><a href="mailto:{{ r.email }}">{{ r.email }}</a></td>
                 <td>{{ state_badge(r.state, r.position) }}</td>
+                <td>{% if r.paid_at %}<span class="badge ok">✓</span>{% endif %}</td>
               </tr>
             {% endfor %}
           </tbody>
