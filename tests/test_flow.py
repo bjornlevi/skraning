@@ -427,6 +427,19 @@ class FlowTest(unittest.TestCase):
         body = self.last_mail("gm@example.org").get_content()
         self.assertIn("sem þú áttir að stjórna", body)
 
+    def test_game_link_preselects_game(self):
+        event = self.create_event()
+        first = self.add_queue(event, name="Fyrra", start="13:00", end="17:00")
+        second = self.add_queue(event, name="Seinna", start="18:00", end="22:00")
+        link = f"/e/{event['slug']}/{second['id']}"
+        self.assertIn(link, self.organizer.get(self.url(f"/admin/{event['slug']}")).get_data(as_text=True))
+        page = self.app.test_client().get(self.url(link)).get_data(as_text=True)
+        self.assertRegex(page, rf'value="{second["id"]}"[^>]*checked')
+        self.assertNotRegex(page, rf'value="{first["id"]}"[^>]*checked')
+        self.assertIn("<title>Seinna – Spilamót", page)
+        # A game from another event, or one that doesn't exist, is not found
+        self.assertEqual(self.app.test_client().get(self.url(f"/e/{event['slug']}/9999")).status_code, 404)
+
     def test_payment_toggle(self):
         event = self.create_event()
         queue = self.add_queue(event, capacity="3")

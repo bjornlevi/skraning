@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import err, honeypot, state_badge, capacity_text %}
-{% block title %}{{ event.name }} – {{ site_name }}{% endblock %}
+{% block title %}{% if focus_queue %}{{ focus_queue.name }} – {% endif %}{{ event.name }} – {{ site_name }}{% endblock %}
 {% block content %}
   {% if is_admin %}
     <p class="small"><a href="{{ url_for('admin', slug=event.slug) }}">← Umsjón viðburðar</a></p>
@@ -56,11 +56,11 @@
         {% for item in slot['items'] %}
           {% set q = item.queue %}{% set c = item.counts %}
           {% set disabled = closed_reason or item.closed or item.registered or item.clash %}
-          <label class="card queue-option{% if disabled %} disabled{% endif %}">
+          <label class="card queue-option{% if disabled %} disabled{% endif %}" id="spil-{{ q.id }}">
             <input type="radio" name="queue_id" value="{{ q.id }}" required
                    data-label="{{ q.name }}" data-time="{{ q.starts_at|slot_label(q.ends_at, event) }}"
                    {% if disabled %}disabled{% endif %}
-                   {% if form.get('queue_id') == q.id|string %}checked{% endif %}>
+                   {% if not disabled and form.get('queue_id') == q.id|string %}checked{% endif %}>
             {# Image above the title on wide screens, beside it on phones #}
             <div class="q-head">
               {% if q.image %}<img class="thumb" src="{{ url_for('upload', name=q.image) }}" alt="">{% endif %}
@@ -130,6 +130,10 @@
         r.addEventListener("change", update);
       });
       update();
+      {% if focus_queue %}
+      var focused = document.getElementById("spil-{{ focus_queue.id }}");
+      if (focused) focused.scrollIntoView({block: "center"});
+      {% endif %}
     })();
   </script>
   {% endif %}

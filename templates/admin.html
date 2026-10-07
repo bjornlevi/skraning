@@ -40,6 +40,7 @@
             · {{ waitlisted|length }} á biðlista
             {% if item.pending %}· {{ item.pending }} óstaðfest{% endif %}
           </div>
+          <div class="small muted">Hlekkur á spilið: <a href="{{ item.link }}" class="code" style="word-break:break-all">{{ item.link }}</a></div>
           {% if q.runner_email %}
             <div class="small">Stjórnandi: {{ q.runner_name or '' }} <span class="muted">&lt;{{ q.runner_email }}&gt;</span></div>
           {% endif %}

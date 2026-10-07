@@ -666,7 +666,12 @@ def create_app(overrides: dict | None = None) -> Flask:
     def event_page(slug):
         return render_event_page(slug)
 
-    def render_event_page(slug, form=None, errors=None, status=200):
+    @app.route("/e/<slug>/<int:queue_id>")
+    def game_page(slug, queue_id):
+        """Shareable link to one game: the event page with that game picked and in view."""
+        return render_event_page(slug, focus=queue_id)
+
+    def render_event_page(slug, form=None, errors=None, status=200, focus=None):
         db = get_db()
         event = db.execute("SELECT * FROM events WHERE slug = ?", (slug,)).fetchone()
         if event is None or event["status"] == "pending":
@@ -701,8 +706,16 @@ def create_app(overrides: dict | None = None) -> Flask:
                                and r["queue_starts_at"] < q["ends_at"]
                                and q["starts_at"] < r["queue_ends_at"]), None),
             })
+        focus_queue = None
+        if focus is not None:
+            focus_queue = next((i["queue"] for s in slots for i in s["items"] if i["queue"]["id"] == focus), None)
+            if focus_queue is None:
+                abort(404)
+            if form is None:
+                form = {"queue_id": str(focus)}
         return render_template(
             "event.html",
+            focus_queue=focus_queue,
             event=event,
             slots=slots,
             mine=mine,
@@ -982,7 +995,8 @@ def create_app(overrides: dict | None = None) -> Flask:
         ).fetchone()
         return render_template("game.html", event=event, queue=queue, values=values, errors=errors,
                                can_edit=can_edit, standing=queue_standing(db, queue), pending=pending,
-                               public_url=external_url("event_page", slug=event["slug"])), (400 if errors else 200)
+                               public_url=external_url("game_page", slug=event["slug"], queue_id=queue_id),
+                               ), (400 if errors else 200)
 
     # ===========================================================================
     # ORGANIZER
@@ -1067,7 +1081,8 @@ def create_app(overrides: dict | None = None) -> Flask:
                    WHERE queue_id = ? AND verified_at IS NULL AND cancelled_at IS NULL""",
                 (q["id"],),
             ).fetchone()
-            queues.append({"queue": q, "standing": queue_standing(db, q), "pending": pending})
+            queues.append({"queue": q, "standing": queue_standing(db, q), "pending": pending,
+                           "link": external_url("game_page", slug=slug, queue_id=q["id"])})
         return render_template("admin.html", event=event, queues=queues,
                                public_url=external_url("event_page", slug=slug))
 
