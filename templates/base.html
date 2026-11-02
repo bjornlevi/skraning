@@ -71,7 +71,10 @@
     .pick-hint { margin-top: 1rem; text-align: center; color: var(--muted); }
     .register-panel { position: sticky; bottom: .75rem; z-index: 5; margin-top: 1rem;
                       border: 2px solid var(--accent); box-shadow: 0 -4px 24px rgba(31,27,22,.18); }
-    .register-title { margin-bottom: .75rem; }
+    .register-title { margin-bottom: .75rem; padding-right: 2rem; }
+    .register-close { position: absolute; top: .4rem; right: .5rem; width: 2rem; height: 2rem; padding: 0;
+                      border: 0; background: none; color: var(--muted); font-size: 1.5rem; line-height: 1; cursor: pointer; border-radius: 6px; }
+    .register-close:hover { color: var(--ink); background: var(--bg); }
     .register-panel .field { margin-bottom: .75rem; }
     .register-panel input::placeholder { color: transparent; }  /* labels show above on wide screens */
     /* Browsers without :has() simply show both, as before */

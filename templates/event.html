@@ -99,6 +99,7 @@
     <div class="panel pick-hint">👆 Veldu spil hér að ofan til að skrá þig.</div>
     {# Shown once a game is picked; sticks to the bottom of the window while the games scroll by #}
     <div class="panel register-panel" id="skraning">
+      <button type="button" class="register-close" id="unpick" aria-label="Loka">×</button>
       <h3 class="register-title">Skrá í <span id="picked">valið spil</span></h3>
       <div class="row">
         <div class="field">
@@ -130,6 +131,11 @@
         r.addEventListener("change", update);
       });
       update();
+      // Closing the form just un-picks the game; the CSS then hides the panel
+      document.getElementById("unpick").addEventListener("click", function () {
+        var r = document.querySelector('input[name="queue_id"]:checked');
+        if (r) r.checked = false;
+      });
       {% if focus_queue %}
       var focused = document.getElementById("spil-{{ focus_queue.id }}");
       if (focused) focused.scrollIntoView({block: "center"});
