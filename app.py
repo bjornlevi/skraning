@@ -14,6 +14,7 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import unicodedata
 import uuid
 from datetime import datetime, timedelta
@@ -276,6 +277,16 @@ def delete_image(name: str | None) -> None:
         (Path(current_app.config["UPLOAD_DIR"]) / name).unlink(missing_ok=True)
 
 
+def copy_image(name: str | None) -> str | None:
+    """A separate copy of a stored image, so deleting one event's image leaves the other's."""
+    src = Path(current_app.config["UPLOAD_DIR"]) / name if name else None
+    if src is None or not src.is_file():
+        return None
+    copy = f"{uuid.uuid4().hex}.jpg"
+    shutil.copyfile(src, src.with_name(copy))
+    return copy
+
+
 def replace_image(current: str | None, new_image: str | None) -> str | None:
     """Keep, replace or remove a stored image according to the submitted form."""
     if new_image or request.form.get("remove_image"):
@@ -514,6 +525,29 @@ def time_slots(event) -> list[dict]:
             """SELECT starts_at, ends_at, COUNT(*) AS n FROM queues WHERE event_id = ?
                GROUP BY starts_at, ends_at ORDER BY starts_at, ends_at""",
             (event["id"],),
+        )
+    ]
+
+
+def copy_form_values(source) -> dict:
+    """Prefill the new-event form from an earlier event; dates are left for the organizer."""
+    values = event_form_values(source)
+    for key in ("date", "end_date", "registration_opens_date", "registration_opens_time",
+                "registration_closes_date", "registration_closes_time"):
+        values[key] = ""
+    return values
+
+
+def shifted_games(source, new_starts_at: str) -> list[dict]:
+    """The source event's games moved by as many days as the event itself, keeping
+    their local clock times (so a move across a DST change does not shift them an hour)."""
+    days = (to_local(new_starts_at).date() - to_local(source["starts_at"]).date()).days
+    move = lambda value: to_db(to_local(value) + timedelta(days=days))  # noqa: E731
+    return [
+        {**dict(q), "starts_at": move(q["starts_at"]), "ends_at": move(q["ends_at"])}
+        for q in get_db().execute(
+            "SELECT * FROM queues WHERE event_id = ? ORDER BY starts_at, sort_order, id",
+            (source["id"],),
         )
     ]
 
@@ -803,7 +837,16 @@ def create_app(overrides: dict | None = None) -> Flask:
                     "UPDATE events SET status = 'published', verified_at = ? WHERE id = ?",
                     (now_db(), event["id"]),
                 )
-            flash("Netfangið er staðfest og viðburðurinn birtur. Bættu nú við spilum.")
+            # Games copied from an earlier event may have runners waiting for their invite
+            runners = db.execute(
+                """SELECT * FROM queues WHERE event_id = ? AND runner_email IS NOT NULL
+                   AND runner_code_hash IS NULL""", (event["id"],)).fetchall()
+            if runners:
+                flash("Netfangið er staðfest og viðburðurinn birtur.")
+                for queue in runners:
+                    flash_runner_invite(event, queue)
+            else:
+                flash("Netfangið er staðfest og viðburðurinn birtur. Bættu nú við spilum.")
         grant("events", event["id"])
         return redirect(url_for("admin", slug=event["slug"]))
 
@@ -881,15 +924,16 @@ def create_app(overrides: dict | None = None) -> Flask:
         now = now_db()
         items = []
         with db:
+            # Past and cancelled events too, so organizers can get back in to copy them
             for event in db.execute(
-                """SELECT * FROM events WHERE organizer_email = ? AND status != 'cancelled'
-                   AND ends_at > ? ORDER BY starts_at""",
-                (email, now),
+                "SELECT * FROM events WHERE organizer_email = ? ORDER BY starts_at DESC", (email,),
             ).fetchall():
                 code = new_code()
                 db.execute("UPDATE events SET admin_code_hash = ? WHERE id = ?", (hash_code(code), event["id"]))
-                items.append({"label": f"Umsjón: {event['name']}", "code": code,
-                              "link": external_url("access", code=code)})
+                note = (" (aflýst)" if event["status"] == "cancelled"
+                        else " (liðinn)" if event["ends_at"] <= now else "")
+                items.append({"label": f"Umsjón: {event['name']}, {fmt_dt(event['starts_at'], with_day=False)}{note}",
+                              "code": code, "link": external_url("access", code=code)})
             for reg in db.execute(
                 """SELECT r.*, e.name AS event_name, q.name AS queue_name
                    FROM registrations r JOIN events e ON e.id = r.event_id
@@ -1005,13 +1049,47 @@ def create_app(overrides: dict | None = None) -> Flask:
     @app.route("/new", methods=["GET", "POST"])
     def new_event():
         need_password = bool(app.config["CREATE_PASSWORD"])
-        if request.method == "GET":
+        source = None
+        if request.values.get("copy"):
+            # Copying is only for organizers who already have access to the earlier event
+            source = get_db().execute("SELECT * FROM events WHERE slug = ?",
+                                      (request.values["copy"],)).fetchone()
+            if source is None:
+                abort(404)
+            if not has_access("events", source["id"]):
+                abort(403)
+
+        def form(values, errors, status=200):
+            db = get_db()
+            n_games = source and db.execute(
+                "SELECT COUNT(*) FROM queues WHERE event_id = ?", (source["id"],)).fetchone()[0]
+            # Events this browser manages (past ones too), offered as templates to copy
+            ids = session.get("events", [])
+            own_events = [] if source or not ids else db.execute(
+                f"""SELECT * FROM events WHERE id IN ({",".join("?" * len(ids))})
+                    ORDER BY starts_at DESC""", ids).fetchall()
             return render_template("event_form.html", creating=True, need_password=need_password,
-                                   values={"listed": "1"}, errors={})
+                                   source=source, n_games=n_games, own_events=own_events,
+                                   now=now_db(), values=values, errors=errors), status
+
+        if request.method == "GET":
+            if source:
+                return form({**copy_form_values(source), "copy_games": "1", "copy_image": "1"}, {})
+            return form({"listed": "1"}, {})
         if request.form.get("website"):  # honeypot
             return redirect(url_for("sent", to="event"))
 
         values, errors = parse_event_form(request.form, creating=True)
+        games = []
+        if source and not errors and request.form.get("copy_games"):
+            games = shifted_games(source, values["starts_at"])
+            outside = [g for g in games
+                       if g["starts_at"] < values["starts_at"] or g["ends_at"] > values["ends_at"]]
+            if outside:
+                errors["copy_games"] = (
+                    "Þessi spil myndu lenda utan nýja tímans: "
+                    + ", ".join(f"„{g['name']}“ ({fmt_range(g['starts_at'], g['ends_at'])})" for g in outside)
+                    + ". Lengdu viðburðinn eða afritaðu án spilanna og bættu þeim við á eftir.")
         if not errors:
             try:
                 values["image"] = save_image(request.files.get("image"))
@@ -1019,12 +1097,20 @@ def create_app(overrides: dict | None = None) -> Flask:
                 errors["image"] = str(e)
         if errors:
             delete_image(values.get("image"))
-            return render_template("event_form.html", creating=True, need_password=need_password,
-                                   values=request.form, errors=errors), 400
+            return form(request.form, errors, 400)
         if (rate_limited(f"create-ip:{client_ip()}", 5)
                 or rate_limited(f"create-email:{values['organizer_email']}", 5)):
             delete_image(values["image"])
             abort(429)
+
+        if source and not values["image"] and request.form.get("copy_image"):
+            values["image"] = copy_image(source["image"])
+        for g in games:
+            g["image"] = copy_image(g["image"])
+
+        def discard_images():
+            for name in [values["image"]] + [g["image"] for g in games]:
+                delete_image(name)
 
         db = get_db()
         code = new_code()
@@ -1039,16 +1125,23 @@ def create_app(overrides: dict | None = None) -> Flask:
                 {**values, "slug": make_slug(values["name"]), "admin_code_hash": hash_code(code),
                  "created_at": now_db()},
             )
+            # Runners of copied games are invited once the new event is verified (open_event)
+            db.executemany(
+                """INSERT INTO queues (event_id, name, description, image, capacity, starts_at,
+                       ends_at, sort_order, is_open, runner_name, runner_email)
+                   VALUES (:event_id, :name, :description, :image, :capacity, :starts_at,
+                       :ends_at, :sort_order, :is_open, :runner_name, :runner_email)""",
+                [{**g, "event_id": cur.lastrowid} for g in games],
+            )
         ok = mail.send(values["organizer_email"], f"Staðfestu viðburð: {values['name']}",
                        "event_created.txt", values=values, code=code,
                        link=external_url("access", code=code))
         if not ok:
             with db:
                 db.execute("DELETE FROM events WHERE id = ?", (cur.lastrowid,))
-            delete_image(values["image"])
+            discard_images()
             errors["form"] = "Ekki tókst að senda tölvupóst. Reyndu aftur síðar."
-            return render_template("event_form.html", creating=True, need_password=need_password,
-                                   values=request.form, errors=errors), 500
+            return form(request.form, errors, 500)
         return redirect(url_for("sent", to="event"))
 
     def load_admin_event(slug):

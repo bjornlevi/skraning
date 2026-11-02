@@ -17,6 +17,7 @@
     <div class="actions">
       <a class="btn secondary small" href="{{ url_for('edit_event', slug=event.slug) }}">Breyta viðburði</a>
       <a class="btn secondary small" href="{{ url_for('export_csv', slug=event.slug) }}">Sækja þátttakendalista (CSV)</a>
+      <a class="btn secondary small" href="{{ url_for('new_event', copy=event.slug) }}" title="Stofna nýjan viðburð með sömu upplýsingum og spilum">Afrita sem nýjan viðburð</a>
     </div>
   </div>
 
@@ -49,7 +50,7 @@
           <a class="btn secondary small" href="{{ url_for('edit_queue', slug=event.slug, queue_id=q.id) }}">Breyta</a>
           {% if q.runner_email and event.status != 'cancelled' %}
             <form method="post" action="{{ url_for('reinvite_runner', slug=event.slug, queue_id=q.id) }}">
-              {{ csrf_field() }}<button class="btn secondary small" type="submit" title="Nýr kóði er sendur og sá gamli hættir að virka">Senda boð aftur</button>
+              {{ csrf_field() }}<button class="btn secondary small" type="submit" title="Nýr kóði er sendur og sá gamli hættir að virka">{{ 'Senda boð aftur' if q.runner_code_hash else 'Senda boð' }}</button>
             </form>
           {% endif %}
           {% if not item.standing and not item.pending %}

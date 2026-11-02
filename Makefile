@@ -3,10 +3,12 @@
 SHELL  := /bin/bash
 PYTHON := .venv/bin/python3
 
-.PHONY: dev install tasks test
+.PHONY: dev web install tasks test
 
 dev:
 	$(PYTHON) -m flask --app app run --debug --port 5003
+
+web: dev
 
 install:
 	python3 -m venv .venv

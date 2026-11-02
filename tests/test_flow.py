@@ -462,6 +462,80 @@ class FlowTest(unittest.TestCase):
         with self.app.app_context():
             self.assertIsNone(get_db().execute("SELECT paid_at FROM registrations").fetchone()[0])
 
+    def test_copy_event(self):
+        day_after = (datetime.now() + timedelta(days=31)).strftime("%Y-%m-%d")
+        event = self.create_event(max_per_person="2", end_date=day_after, end_time="03:00")
+        queue = self.add_queue(event, start="22:00", end="02:00",
+                               runner_name="Gunna", runner_email="gm@example.org")
+        self.add_queue(event, name="Dýflissur", start="13:00", end="17:00")
+        self.register(event, queue, "p1@example.org")
+
+        # Only someone with access to the old event can copy it
+        self.assertEqual(self.app.test_client().get(self.url(f"/new?copy={event['slug']}")).status_code, 403)
+        html = self.organizer.get(self.url(f"/new?copy={event['slug']}")).get_data(as_text=True)
+        self.assertIn('value="Spilamót"', html)
+        self.assertIn('value="org@example.org"', html)
+        self.assertIn("Afrita líka spilin (2)", html)
+        self.assertIn('name="max_per_person" min="1" max="50" value="2"', html)
+
+        new_day = (datetime.strptime(self.day, "%Y-%m-%d") + timedelta(days=7)).strftime("%Y-%m-%d")
+        data = {"name": "Spilamót II", "date": new_day, "time": "10:00", "end_date": "",
+                "end_time": "23:00", "listed": "1", "organizer_name": "Umsjón",
+                "organizer_email": "org@example.org", "copy_games": "1"}
+        # The night game would end after the event, which (unlike the original) has no end date
+        resp = self.post(self.organizer, f"/new?copy={event['slug']}", data)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("utan nýja tímans", resp.get_data(as_text=True))
+
+        end_day = (datetime.strptime(new_day, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        mail.outbox.clear()
+        resp = self.post(self.organizer, f"/new?copy={event['slug']}", {**data, "end_date": end_day,
+                                                                       "end_time": "03:00"})
+        self.assertEqual(resp.status_code, 302, resp.get_data(as_text=True)[-3000:])
+        self.assertFalse([m for m in mail.outbox if m["To"] == "gm@example.org"])  # not before verifying
+        self.organizer.get(self.url(f"/c/{self.code_from(self.last_mail('org@example.org'))}"))
+        self.assertIn("Þú stjórnar", self.last_mail("gm@example.org")["Subject"])
+
+        with self.app.app_context():
+            db = get_db()
+            copy = db.execute("SELECT * FROM events WHERE name = 'Spilamót II'").fetchone()
+            self.assertEqual(copy["status"], "published")
+            games = db.execute("SELECT * FROM queues WHERE event_id = ? ORDER BY starts_at",
+                               (copy["id"],)).fetchall()
+            old = {q["name"]: q for q in db.execute("SELECT * FROM queues WHERE event_id = ?",
+                                                    (event["id"],))}
+            self.assertEqual([g["name"] for g in games], ["Dýflissur", "Kall Cthulhu"])
+            for g in games:
+                for col in ("starts_at", "ends_at"):
+                    self.assertEqual(datetime.fromisoformat(g[col]) - datetime.fromisoformat(old[g["name"]][col]),
+                                     timedelta(days=7))
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM registrations WHERE event_id = ?",
+                                        (copy["id"],)).fetchone()[0], 0)
+
+    def test_past_event_can_be_found_and_copied(self):
+        event = self.create_event()
+        with self.app.app_context():
+            db = get_db()
+            with db:
+                db.execute("UPDATE events SET starts_at = ?, ends_at = ? WHERE id = ?",
+                           (to_db(utcnow() - timedelta(days=40)), to_db(utcnow() - timedelta(days=39)),
+                            event["id"]))
+        self.assertNotIn("Spilamót", self.organizer.get(self.url("/")).get_data(as_text=True))
+        html = self.organizer.get(self.url("/new")).get_data(as_text=True)
+        self.assertIn("Afrita eldri viðburð", html)
+        self.assertIn(f"/new?copy={event['slug']}", html)
+        self.assertIn("Liðinn", html)
+
+        # A new browser has no list, but "lost code" gives access to past events too
+        other = self.app.test_client()
+        self.assertNotIn("Afrita eldri viðburð", other.get(self.url("/new")).get_data(as_text=True))
+        self.post(other, "/lost", {"email": "org@example.org"})
+        msg = self.last_mail("org@example.org")
+        self.assertIn("(liðinn)", msg.get_content())
+        other.get(self.url(f"/c/{self.code_from(msg)}"))
+        self.assertIn(f"/new?copy={event['slug']}", other.get(self.url("/new")).get_data(as_text=True))
+        self.assertEqual(other.get(self.url(f"/new?copy={event['slug']}")).status_code, 200)
+
     def test_migration_from_version_1(self):
         import sqlite3
         from db import SCHEMA, init_db

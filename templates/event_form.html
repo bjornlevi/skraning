@@ -5,6 +5,33 @@
 {% block content %}
   {% if not creating %}<p class="small"><a href="{{ url_for('admin', slug=event.slug) }}">← Umsjón viðburðar</a></p>{% endif %}
   <h1>{{ 'Nýr viðburður' if creating else 'Breyta viðburði' }}</h1>
+  {% if source %}
+    <p class="muted">Afrit af <strong>{{ source.name }}</strong> ({{ source.starts_at|dtrange(source.ends_at) }}). Veldu nýja dagsetningu og lagaðu það sem þarf.</p>
+  {% endif %}
+  {% if own_events %}
+    <details class="panel" {% if not values.get('name') %}open{% endif %}>
+      <summary><strong>Afrita eldri viðburð</strong></summary>
+      <p class="small muted" style="margin:.5rem 0">Byrjaðu út frá viðburði sem þú hefur haldið áður. Upplýsingar og spil eru afrituð og þú velur nýja dagsetningu.</p>
+      <div class="table-wrap">
+        <table>
+          <tbody>
+            {% for e in own_events %}
+              <tr>
+                <td><a href="{{ url_for('admin', slug=e.slug) }}">{{ e.name }}</a>
+                  {% if e.status == 'cancelled' %}<span class="badge bad">Aflýst</span>
+                  {% elif e.ends_at <= now %}<span class="badge">Liðinn</span>{% endif %}</td>
+                <td class="small muted">{{ e.starts_at|dtrange(e.ends_at) }}</td>
+                <td><a class="btn secondary small" href="{{ url_for('new_event', copy=e.slug) }}">Afrita</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="small muted" style="margin:.5rem 0 0">Vantar viðburð? Notaðu <a href="{{ url_for('lost') }}">Týndur kóði</a> til að fá stjórnunarkóða fyrir alla viðburði sem þú hefur stofnað.</p>
+    </details>
+  {% elif creating and not source %}
+    <p class="small muted">Viltu afrita eldri viðburð? Opnaðu hann með stjórnunarkóðanum (eða fáðu kóðann með <a href="{{ url_for('lost') }}">Týndur kóði</a>) og veldu „Afrita sem nýjan viðburð“.</p>
+  {% endif %}
   {% if errors.form %}<div class="error-box">{{ errors.form }}</div>{% endif %}
   {% if errors and not errors.form %}<div class="error-box">Lagfærðu villurnar hér að neðan.</div>{% endif %}
 
@@ -61,6 +88,10 @@
         <img class="thumb" src="{{ url_for('upload', name=event.image) }}" alt="" style="max-width:240px">
         <label class="small"><input type="checkbox" name="remove_image" value="1"> Fjarlægja mynd</label>
       {% endif %}
+      {% if source and source.image %}
+        <img class="thumb" src="{{ url_for('upload', name=source.image) }}" alt="" style="max-width:240px">
+        <label class="small"><input type="checkbox" name="copy_image" value="1" {% if values.get('copy_image') %}checked{% endif %}> Nota sömu mynd (nema þú veljir nýja)</label>
+      {% endif %}
       <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp,image/gif">
       <div class="hint">Valfrjálst. JPG, PNG eða WebP, hámark 10 MB.</div>
       {{ err(errors, 'image') }}
@@ -106,6 +137,14 @@
         </div>
       </div>
     </details>
+
+    {% if source and n_games %}
+      <div class="field">
+        <label><input type="checkbox" name="copy_games" value="1" {% if values.get('copy_games') %}checked{% endif %}> Afrita líka spilin ({{ n_games }})</label>
+        <div class="hint">Spilin færast um jafnmarga daga og viðburðurinn og halda sömu klukkutímum. Skráningar fylgja ekki með. Stjórnendur spila fá boð þegar þú hefur staðfest nýja viðburðinn.</div>
+        {{ err(errors, 'copy_games') }}
+      </div>
+    {% endif %}
 
     {% if creating %}
       <h2>Umsjónaraðili</h2>
