@@ -181,6 +181,7 @@
     <div class="inner">
       <a class="brand" href="{{ url_for('home') }}">{{ site_name }}</a>
       <nav>
+        {% if session.get('events') %}<a href="{{ url_for('my_events') }}">Mínir viðburðir</a>{% endif %}
         <a href="{{ url_for('new_event') }}">Nýr viðburður</a>
         <a href="{{ url_for('lost') }}">Týndur kóði</a>
       </nav>

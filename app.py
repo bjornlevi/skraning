@@ -306,6 +306,24 @@ def has_access(kind: str, obj_id: int) -> bool:
     return obj_id in session.get(kind, [])
 
 
+def managed_events() -> list:
+    """Events this browser has opened with an admin code, past and cancelled ones too, newest first,
+    with counts of active registrations and how many are marked paid."""
+    ids = session.get("events", [])
+    if not ids:
+        return []
+    return get_db().execute(
+        f"""SELECT e.*,
+                (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id
+                   AND r.verified_at IS NOT NULL AND r.cancelled_at IS NULL) AS n_regs,
+                (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id
+                   AND r.verified_at IS NOT NULL AND r.cancelled_at IS NULL AND r.paid_at IS NOT NULL) AS n_paid
+            FROM events e WHERE e.id IN ({",".join("?" * len(ids))})
+            ORDER BY e.starts_at DESC""",
+        ids,
+    ).fetchall()
+
+
 def registration_closed_reason(event) -> str | None:
     now = now_db()
     if event["status"] == "cancelled":
@@ -1064,10 +1082,7 @@ def create_app(overrides: dict | None = None) -> Flask:
             n_games = source and db.execute(
                 "SELECT COUNT(*) FROM queues WHERE event_id = ?", (source["id"],)).fetchone()[0]
             # Events this browser manages (past ones too), offered as templates to copy
-            ids = session.get("events", [])
-            own_events = [] if source or not ids else db.execute(
-                f"""SELECT * FROM events WHERE id IN ({",".join("?" * len(ids))})
-                    ORDER BY starts_at DESC""", ids).fetchall()
+            own_events = [] if source else managed_events()
             return render_template("event_form.html", creating=True, need_password=need_password,
                                    source=source, n_games=n_games, own_events=own_events,
                                    now=now_db(), values=values, errors=errors), status
@@ -1144,6 +1159,14 @@ def create_app(overrides: dict | None = None) -> Flask:
             return form(request.form, errors, 500)
         return redirect(url_for("sent", to="event"))
 
+    @app.route("/mine")
+    def my_events():
+        now = now_db()
+        events = managed_events()
+        return render_template("mine.html",
+                               upcoming=[e for e in reversed(events) if e["ends_at"] > now],
+                               past=[e for e in events if e["ends_at"] <= now])
+
     def load_admin_event(slug):
         event = get_db().execute("SELECT * FROM events WHERE slug = ?", (slug,)).fetchone()
         if event is None:
@@ -1176,7 +1199,7 @@ def create_app(overrides: dict | None = None) -> Flask:
             ).fetchone()
             queues.append({"queue": q, "standing": queue_standing(db, q), "pending": pending,
                            "link": external_url("game_page", slug=slug, queue_id=q["id"])})
-        return render_template("admin.html", event=event, queues=queues,
+        return render_template("admin.html", event=event, queues=queues, past=event["ends_at"] <= now_db(),
                                public_url=external_url("event_page", slug=slug))
 
     @app.route("/admin/<slug>/edit", methods=["GET", "POST"])

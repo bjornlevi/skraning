@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Mínir viðburðir – {{ site_name }}{% endblock %}
+{% macro event_table(events) %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Viðburður</th><th>Tími</th><th>Skráningar</th><th>Greitt</th><th></th></tr></thead>
+      <tbody>
+        {% for e in events %}
+          <tr>
+            <td><a href="{{ url_for('admin', slug=e.slug) }}"><strong>{{ e.name }}</strong></a>
+              {% if e.status == 'cancelled' %}<span class="badge bad">Aflýst</span>
+              {% elif e.status == 'pending' %}<span class="badge">Óstaðfestur</span>{% endif %}</td>
+            <td class="small">{{ e.starts_at|dtrange(e.ends_at) }}</td>
+            <td>{{ e.n_regs }}</td>
+            <td>{{ e.n_paid }} / {{ e.n_regs }}</td>
+            <td><div class="actions">
+              <a class="btn secondary small" href="{{ url_for('admin', slug=e.slug) }}">Opna</a>
+              <a class="btn secondary small" href="{{ url_for('new_event', copy=e.slug) }}">Afrita</a>
+            </div></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endmacro %}
+{% block content %}
+  <h1>Mínir viðburðir</h1>
+  <p class="muted small">Viðburðir sem þú hefur opnað með stjórnunarkóða í þessum vafra. Vantar viðburð? Notaðu <a href="{{ url_for('lost') }}">Týndur kóði</a> — þá færðu kóða fyrir alla viðburði sem þú hefur stofnað, líka liðna.</p>
+
+  <h2>Framundan</h2>
+  {% if upcoming %}{{ event_table(upcoming) }}{% else %}<p class="muted">Engir viðburðir framundan.</p>{% endif %}
+
+  <h2>Liðnir viðburðir</h2>
+  {% if past %}{{ event_table(past) }}{% else %}<p class="muted">Engir liðnir viðburðir.</p>{% endif %}
+
+  <p style="margin-top:2rem"><a class="btn" href="{{ url_for('new_event') }}">Nýr viðburður</a></p>
+{% endblock %}

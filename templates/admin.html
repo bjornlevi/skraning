@@ -2,12 +2,13 @@
 {% from "_macros.html" import state_badge %}
 {% block title %}Umsjón: {{ event.name }} – {{ site_name }}{% endblock %}
 {% block content %}
-  <div class="muted small">Umsjón viðburðar</div>
+  <div class="muted small"><a href="{{ url_for('my_events') }}">Mínir viðburðir</a> › Umsjón viðburðar</div>
   <h1>{{ event.name }}</h1>
   <div class="meta">
     <span>📅 {{ event.starts_at|dtrange(event.ends_at) }}</span>
     {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}
     {% if event.status == 'cancelled' %}<span class="badge bad">Aflýst</span>
+    {% elif past %}<span class="badge">Liðinn</span>
     {% elif not event.listed %}<span class="badge">Ekki á forsíðu</span>{% endif %}
   </div>
 

@@ -514,6 +514,12 @@ class FlowTest(unittest.TestCase):
 
     def test_past_event_can_be_found_and_copied(self):
         event = self.create_event()
+        queue = self.add_queue(event, capacity="3")
+        self.register(event, queue, "a@example.org")
+        self.register(event, queue, "b@example.org")
+        with self.app.app_context():
+            reg_id = get_db().execute("SELECT id FROM registrations WHERE email = 'a@example.org'").fetchone()[0]
+        self.post(self.organizer, f"/admin/{event['slug']}/registrations/{reg_id}/paid")
         with self.app.app_context():
             db = get_db()
             with db:
@@ -521,6 +527,18 @@ class FlowTest(unittest.TestCase):
                            (to_db(utcnow() - timedelta(days=40)), to_db(utcnow() - timedelta(days=39)),
                             event["id"]))
         self.assertNotIn("Spilamót", self.organizer.get(self.url("/")).get_data(as_text=True))
+
+        # "My events" lists it as past, with registration and payment counts
+        mine = self.organizer.get(self.url("/mine")).get_data(as_text=True)
+        self.assertIn("Mínir viðburðir", self.organizer.get(self.url("/")).get_data(as_text=True))
+        past_part = mine.split("Liðnir viðburðir")[1]
+        self.assertIn(f"/admin/{event['slug']}", past_part)
+        self.assertIn("1 / 2", past_part)
+        admin = self.organizer.get(self.url(f"/admin/{event['slug']}")).get_data(as_text=True)
+        self.assertIn("Liðinn", admin)
+        self.assertIn("✓ Greitt", admin)
+        self.assertNotIn("Mínir viðburðir", self.app.test_client().get(self.url("/")).get_data(as_text=True))
+
         html = self.organizer.get(self.url("/new")).get_data(as_text=True)
         self.assertIn("Afrita eldri viðburð", html)
         self.assertIn(f"/new?copy={event['slug']}", html)
