@@ -554,6 +554,15 @@ class FlowTest(unittest.TestCase):
         self.assertIn(f"/new?copy={event['slug']}", other.get(self.url("/new")).get_data(as_text=True))
         self.assertEqual(other.get(self.url(f"/new?copy={event['slug']}")).status_code, 200)
 
+    def test_registration_close_time_shown(self):
+        close_day = (datetime.now() + timedelta(days=20)).strftime("%Y-%m-%d")
+        event = self.create_event(registration_closes_date=close_day, registration_closes_time="18:00")
+        self.add_queue(event)
+        for path in ("/", f"/e/{event['slug']}", f"/admin/{event['slug']}"):
+            html = self.organizer.get(self.url(path)).get_data(as_text=True)
+            self.assertIn("Skráningu lýkur", html, path)
+            self.assertIn("kl. 18:00", html, path)
+
     def test_migration_from_version_1(self):
         import sqlite3
         from db import SCHEMA, init_db

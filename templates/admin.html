@@ -7,6 +7,8 @@
   <div class="meta">
     <span>📅 {{ event.starts_at|dtrange(event.ends_at) }}</span>
     {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}
+    {% if event.registration_opens_at %}<span>Skráning opnar {{ event.registration_opens_at|dt_acc }}</span>{% endif %}
+    <span>{% if event.registration_closes_at %}Skráningu lýkur {{ event.registration_closes_at|dt_acc }}{% else %}Skráning í hvert spil opin þar til það hefst{% endif %}</span>
     {% if event.status == 'cancelled' %}<span class="badge bad">Aflýst</span>
     {% elif past %}<span class="badge">Liðinn</span>
     {% elif not event.listed %}<span class="badge">Ekki á forsíðu</span>{% endif %}

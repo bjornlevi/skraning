@@ -10,6 +10,7 @@
           <h3>{{ e.name }}</h3>
           <div class="muted small">{{ e.starts_at|dtrange(e.ends_at) }}</div>
           {% if e.location %}<div class="muted small">{{ e.location }}</div>{% endif %}
+          {% if e.registration_closes_at %}<div class="small">Skráningu lýkur {{ e.registration_closes_at|dt_acc }}</div>{% endif %}
         </a>
       {% endfor %}
     </div>

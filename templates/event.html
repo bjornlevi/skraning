@@ -29,7 +29,9 @@
   {% endif %}
 
   <h2>Skráning</h2>
-  {% if closed_reason %}<div class="error-box">{{ closed_reason }}</div>{% endif %}
+  {% if closed_reason %}<div class="error-box">{{ closed_reason }}</div>
+  {% elif event.registration_closes_at %}<p class="notice"><strong>Skráningu lýkur {{ event.registration_closes_at|dt_acc }}.</strong></p>
+  {% endif %}
   {% if errors.form %}<div class="error-box">{{ errors.form }}</div>{% endif %}
 
   {% if not slots %}
