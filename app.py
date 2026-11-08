@@ -1208,7 +1208,10 @@ def create_app(overrides: dict | None = None) -> Flask:
                    if item["queue"]["runner_name"] or item["queue"]["runner_email"]]
         return render_template("admin.html", event=event, queues=queues, past=event["ends_at"] <= now_db(),
                                public_url=external_url("event_page", slug=slug),
-                               participants=participants, runners=runners)
+                               participants=participants, runners=runners,
+                               participant_emails=", ".join(dict.fromkeys(p["email"] for p in participants)),
+                               runner_emails=", ".join(dict.fromkeys(
+                                   q["runner_email"] for q in runners if q["runner_email"])))
 
     @app.route("/admin/<slug>/edit", methods=["GET", "POST"])
     def edit_event(slug):

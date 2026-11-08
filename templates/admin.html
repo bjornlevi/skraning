@@ -106,6 +106,7 @@
 
   <h2>Þátttakendur</h2>
   {% if participants %}
+    <p><button type="button" class="btn secondary small copy-btn" data-copy="{{ participant_emails }}">Afrita netföng</button></p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Nafn</th><th>Netfang</th><th>Spil</th><th>Staða</th><th>Greitt</th></tr></thead>
@@ -128,6 +129,7 @@
 
   <h2>Stjórnendur spila</h2>
   {% if runners %}
+    <p><button type="button" class="btn secondary small copy-btn" data-copy="{{ runner_emails }}">Afrita netföng</button></p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Spil</th><th>Tími</th><th>Stjórnandi</th><th>Netfang</th><th>Boð</th></tr></thead>
@@ -147,6 +149,41 @@
   {% else %}
     <p class="muted">Engir stjórnendur skráðir á spil.</p>
   {% endif %}
+
+  <script>
+    (function () {
+      // Copies the comma-separated addresses in data-copy; falls back to a hidden textarea
+      function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+          return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (resolve, reject) {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          ok ? resolve() : reject(new Error("copy failed"));
+        });
+      }
+      document.querySelectorAll(".copy-btn").forEach(function (btn) {
+        var label = btn.textContent;
+        btn.addEventListener("click", function () {
+          copyText(btn.dataset.copy).then(function () {
+            btn.textContent = "Afritað ✓";
+          }, function () {
+            btn.textContent = "Tókst ekki – afritaðu handvirkt";
+          }).then(function () {
+            setTimeout(function () { btn.textContent = label; }, 2000);
+          });
+        });
+      });
+    })();
+  </script>
 
   {% if event.status != 'cancelled' %}
     <h2>Aflýsa viðburði</h2>

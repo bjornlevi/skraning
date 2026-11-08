@@ -445,6 +445,9 @@ class FlowTest(unittest.TestCase):
         self.assertIn("gm@example.org", runners)
         self.assertIn("Boð sent", runners)
         self.assertNotIn("Seinna", runners)
+        # Copy buttons carry the comma-separated address lists
+        self.assertIn('data-copy="alfa@example.org, zeta@example.org"', people)
+        self.assertIn('data-copy="gm@example.org"', runners)
 
     def test_game_link_preselects_game(self):
         event = self.create_event()
