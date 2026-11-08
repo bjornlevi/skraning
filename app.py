@@ -1199,8 +1199,16 @@ def create_app(overrides: dict | None = None) -> Flask:
             ).fetchone()
             queues.append({"queue": q, "standing": queue_standing(db, q), "pending": pending,
                            "link": external_url("game_page", slug=slug, queue_id=q["id"])})
+        # Event-wide participant list (all games) and the runner of each game
+        participants = sorted(
+            ({"game": item["queue"]["name"], **r} for item in queues for r in item["standing"]),
+            key=lambda p: (p["name"] or "").lower(),
+        )
+        runners = [item["queue"] for item in queues
+                   if item["queue"]["runner_name"] or item["queue"]["runner_email"]]
         return render_template("admin.html", event=event, queues=queues, past=event["ends_at"] <= now_db(),
-                               public_url=external_url("event_page", slug=slug))
+                               public_url=external_url("event_page", slug=slug),
+                               participants=participants, runners=runners)
 
     @app.route("/admin/<slug>/edit", methods=["GET", "POST"])
     def edit_event(slug):

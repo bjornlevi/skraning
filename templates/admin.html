@@ -104,6 +104,50 @@
     </div>
   {% endfor %}
 
+  <h2>Þátttakendur</h2>
+  {% if participants %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nafn</th><th>Netfang</th><th>Spil</th><th>Staða</th><th>Greitt</th></tr></thead>
+        <tbody>
+          {% for p in participants %}
+            <tr>
+              <td>{{ p.name }}</td>
+              <td><a href="mailto:{{ p.email }}">{{ p.email }}</a></td>
+              <td>{{ p.game }}</td>
+              <td>{{ state_badge(p.state, p.position) }}</td>
+              <td>{% if p.paid_at %}já{% else %}<span class="muted">nei</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Engir þátttakendur enn.</p>
+  {% endif %}
+
+  <h2>Stjórnendur spila</h2>
+  {% if runners %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Spil</th><th>Tími</th><th>Stjórnandi</th><th>Netfang</th><th>Boð</th></tr></thead>
+        <tbody>
+          {% for q in runners %}
+            <tr>
+              <td><a href="#q{{ q.id }}">{{ q.name }}</a></td>
+              <td class="small">{{ q.starts_at|dtrange(q.ends_at) }}</td>
+              <td>{{ q.runner_name or '—' }}</td>
+              <td>{% if q.runner_email %}<a href="mailto:{{ q.runner_email }}">{{ q.runner_email }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td>{% if q.runner_code_hash %}<span class="badge ok">Boð sent</span>{% else %}<span class="badge">Ekki sent</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Engir stjórnendur skráðir á spil.</p>
+  {% endif %}
+
   {% if event.status != 'cancelled' %}
     <h2>Aflýsa viðburði</h2>
     <details class="panel">

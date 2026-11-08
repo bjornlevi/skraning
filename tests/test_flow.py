@@ -427,6 +427,25 @@ class FlowTest(unittest.TestCase):
         body = self.last_mail("gm@example.org").get_content()
         self.assertIn("sem þú áttir að stjórna", body)
 
+    def test_admin_lists_participants_and_runners(self):
+        event = self.create_event()
+        first = self.add_queue(event, name="Fyrra", runner_name="Gunna", runner_email="gm@example.org")
+        second = self.add_queue(event, name="Seinna", start="18:00", end="22:00")
+        self.register(event, first, "zeta@example.org")
+        self.register(event, second, "alfa@example.org")
+        html = self.organizer.get(self.url(f"/admin/{event['slug']}")).get_data(as_text=True)
+        people = html[html.index("<h2>Þátttakendur</h2>"):html.index("<h2>Stjórnendur spila</h2>")]
+        runners = html[html.index("<h2>Stjórnendur spila</h2>"):html.index("<h2>Aflýsa")]
+        # Participant list is sorted by name and shows the game of each registration
+        self.assertLess(people.index("alfa@example.org"), people.index("zeta@example.org"))
+        self.assertIn("Seinna", people)
+        self.assertIn("Fyrra", people)
+        # Runner table lists only games that have a runner, with the invite state
+        self.assertIn("Gunna", runners)
+        self.assertIn("gm@example.org", runners)
+        self.assertIn("Boð sent", runners)
+        self.assertNotIn("Seinna", runners)
+
     def test_game_link_preselects_game(self):
         event = self.create_event()
         first = self.add_queue(event, name="Fyrra", start="13:00", end="17:00")
